@@ -1,0 +1,71 @@
+{
+  "preset": "laravel",
+  "rules": {
+    "braces_position": {
+      "allow_single_line_anonymous_functions": true,
+      "allow_single_line_empty_anonymous_classes": true,
+      "anonymous_classes_opening_brace": "same_line",
+      "anonymous_functions_opening_brace": "same_line",
+      "classes_opening_brace": "same_line",
+      "control_structures_opening_brace": "same_line",
+      "functions_opening_brace": "same_line"
+    },
+    "array_syntax": {
+      "syntax": "short"
+    },
+    "attribute_empty_parentheses": {
+      "use_parentheses": false
+    },
+    "control_structure_braces": true,
+    "normalize_index_brace": true,
+    "explicit_indirect_variable": true,
+    "explicit_string_variable": true,
+    "declare_strict_types": true,
+    "blank_line_after_namespace": true,
+    "blank_line_after_opening_tag": true,
+    "class_reference_name_casing": true,
+    "clean_namespace": true,
+    "combine_consecutive_issets": true,
+    "compact_nullable_type_declaration": true,
+    "linebreak_after_opening_tag": true,
+    "lowercase_cast": true,
+    "assign_null_coalescing_to_coalesce_equal": true,
+    "native_function_invocation": {
+      "include": [
+        "@compiler_optimized"
+      ],
+      "scope": "namespaced",
+      "strict": false
+    },
+    "no_extra_blank_lines": {
+      "tokens": [
+        "curly_brace_block",
+        "extra",
+        "throw",
+        "use"
+      ]
+    },
+    "blank_line_before_statement": {
+      "statements": [
+        "break",
+        "continue",
+        "declare",
+        "if",
+        "return",
+        "throw",
+        "try"
+      ]
+    },
+    "global_namespace_import": {
+      "import_classes": true
+    },
+    "trailing_comma_in_multiline": {
+      "elements": [
+        "arguments",
+        "arrays",
+        "match",
+        "parameters"
+      ]
+    }
+  }
+}
