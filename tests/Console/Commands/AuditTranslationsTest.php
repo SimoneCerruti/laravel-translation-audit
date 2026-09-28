@@ -8,12 +8,12 @@ use TranslationAudit\Console\Commands\AuditTranslations;
 
 use function Pest\Laravel\artisan;
 
-beforeEach(function () {
+beforeEach(function (): void {
     config(['translation-audit.supported_locales' => ['en', 'it']]);
 });
 
-describe('configuration', function () {
-    it('fails when no scan path is configured', function () {
+describe('configuration', function (): void {
+    it('fails when no scan path is configured', function (): void {
         config(['translation-audit.scan_paths' => []]);
 
         artisan(AuditTranslations::class)
@@ -21,7 +21,7 @@ describe('configuration', function () {
             ->assertExitCode(Command::INVALID);
     });
 
-    it('fails when no locale is configured', function () {
+    it('fails when no locale is configured', function (): void {
         config(['translation-audit.supported_locales' => []]);
 
         artisan(AuditTranslations::class)
@@ -29,7 +29,7 @@ describe('configuration', function () {
             ->assertExitCode(Command::INVALID);
     });
 
-    it('fails when a config value is not an array', function (string $key) {
+    it('fails when a config value is not an array', function (string $key): void {
         config(["translation-audit.{$key}" => 'invalid']);
 
         artisan(AuditTranslations::class)
@@ -37,7 +37,7 @@ describe('configuration', function () {
             ->assertExitCode(Command::INVALID);
     })->with(['scan_paths', 'ignore_paths', 'ignore_locales', 'supported_locales']);
 
-    it('fails when a config value contains something other than non-empty strings', function (string $key, mixed $value) {
+    it('fails when a config value contains something other than non-empty strings', function (string $key, mixed $value): void {
         config(["translation-audit.{$key}" => ['en', $value]]);
 
         artisan(AuditTranslations::class)
@@ -50,27 +50,27 @@ describe('configuration', function () {
         'nested array' => [['it']],
     ]);
 
-    it('succeeds when there are no files to scan', function () {
+    it('succeeds when there are no files to scan', function (): void {
         artisan(AuditTranslations::class)
             ->expectsOutput('No missing translations found.')
             ->assertSuccessful();
     });
 });
 
-describe('heavy paths', function () {
-    it('warns when a heavy path is set for scan', function (string $scan_path, Closure $path) {
+describe('heavy paths', function (): void {
+    it('warns when a heavy path is set for scan', function (string $scan_path, Closure $path): void {
         config(['translation-audit.scan_paths' => [$scan_path]]);
 
         artisan(AuditTranslations::class)
             ->expectsOutputToContain("The '{$path()}' is set for scan. This may cause heavy resource usage and significantly slow down the audit.")
             ->assertSuccessful();
     })->with([
-        'vendor' => ['vendor', fn () => base_path('vendor')],
-        'node_modules' => ['node_modules', fn () => base_path('node_modules')],
-        'storage' => ['storage', fn () => storage_path()],
+        'vendor' => ['vendor', fn (): string => base_path('vendor')],
+        'node_modules' => ['node_modules', fn (): string => base_path('node_modules')],
+        'storage' => ['storage', fn (): string => storage_path()],
     ]);
 
-    it('does not warn for paths that are not heavy', function (string $scan_path) {
+    it('does not warn for paths that are not heavy', function (string $scan_path): void {
         config(['translation-audit.scan_paths' => [$scan_path]]);
 
         artisan(AuditTranslations::class)
@@ -83,12 +83,12 @@ describe('heavy paths', function () {
     ]);
 });
 
-describe('supported locales', function () {
-    beforeEach(function () {
+describe('supported locales', function (): void {
+    beforeEach(function (): void {
         putFile('app/Greeter.php', "<?php __('Hello');");
     });
 
-    it('uses the configured locales when not auto', function () {
+    it('uses the configured locales when not auto', function (): void {
         populateLangDir(files: ['fr.json'], directories: ['es']);
 
         artisan(AuditTranslations::class)
@@ -98,7 +98,7 @@ describe('supported locales', function () {
             ->assertFailed();
     });
 
-    it('detects the locales from the filesystem when configured as auto', function () {
+    it('detects the locales from the filesystem when configured as auto', function (): void {
         config(['translation-audit.supported_locales' => ['auto']]);
         populateLangDir(files: ['de.json', 'it.json'], directories: ['it', 'fr', 'vendor/some-package/es']);
         putFile('lang/README.md', '');
@@ -111,7 +111,7 @@ describe('supported locales', function () {
             ->assertFailed();
     });
 
-    it('detects only the locales at the top level of the lang directory', function () {
+    it('detects only the locales at the top level of the lang directory', function (): void {
         config(['translation-audit.supported_locales' => ['auto']]);
         populateLangDir(files: ['en.json', 'it/fr.json', 'vendor/some-package/es.json'], directories: ['it/de', 'vendor/some-package']);
 
@@ -122,7 +122,7 @@ describe('supported locales', function () {
             ->assertFailed();
     });
 
-    it('does not audit ignored locales', function () {
+    it('does not audit ignored locales', function (): void {
         config(['translation-audit.ignore_locales' => ['en']]);
 
         artisan(AuditTranslations::class)
@@ -132,7 +132,7 @@ describe('supported locales', function () {
             ->assertFailed();
     });
 
-    it('fails when auto detecting locales without a lang directory', function () {
+    it('fails when auto detecting locales without a lang directory', function (): void {
         config(['translation-audit.supported_locales' => ['auto']]);
 
         artisan(AuditTranslations::class)
@@ -140,7 +140,7 @@ describe('supported locales', function () {
             ->assertExitCode(Command::INVALID);
     });
 
-    it('fails when auto detecting locales in a lang directory without locales', function () {
+    it('fails when auto detecting locales in a lang directory without locales', function (): void {
         config(['translation-audit.supported_locales' => ['auto']]);
         populateLangDir(files: ['test.md'], directories: ['vendor']);
 
@@ -150,8 +150,8 @@ describe('supported locales', function () {
     });
 });
 
-describe('file selection', function () {
-    it('scans only the files matching the scan paths', function () {
+describe('file selection', function (): void {
+    it('scans only the files matching the scan paths', function (): void {
         putFile('resources/views/welcome.blade.php', "{{ __('Welcome') }}");
         putFile('app/Models/User.php', "<?php __('User');");
         putFile('app/notes.txt', "<?php __('Notes');");
@@ -166,7 +166,7 @@ describe('file selection', function () {
             ->assertFailed();
     });
 
-    it('reports the files sorted by path', function () {
+    it('reports the files sorted by path', function (): void {
         $names = ['Zeta', 'Mu', 'Alpha', 'Omega', 'Beta', 'Kappa', 'Delta', 'Sigma', 'Gamma', 'Eta'];
 
         foreach ($names as $name) {
@@ -176,7 +176,7 @@ describe('file selection', function () {
         sort($names);
 
         $rows = collect($names)
-            ->flatMap(fn (string $name) => [new TableSeparator, [base_path("app/{$name}.php"), $name, 'EN, IT']])
+            ->flatMap(fn (string $name): array => [new TableSeparator, [base_path("app/{$name}.php"), $name, 'EN, IT']])
             ->skip(1)
             ->values()
             ->all();
@@ -186,7 +186,7 @@ describe('file selection', function () {
             ->assertFailed();
     });
 
-    it('skips the files matching the ignore paths', function () {
+    it('skips the files matching the ignore paths', function (): void {
         config(['translation-audit.ignore_paths' => ['app/Legacy/**']]);
         putFile('app/Legacy/Old.php', "<?php __('Old');");
         putFile('app/New.php', "<?php __('New');");
@@ -198,7 +198,7 @@ describe('file selection', function () {
             ->assertFailed();
     });
 
-    it('shows the scan progress', function () {
+    it('shows the scan progress', function (): void {
         putFile('app/First.php', '<?php');
         putFile('app/Second.php', '<?php');
 
@@ -208,13 +208,13 @@ describe('file selection', function () {
             ->assertSuccessful();
     });
 
-    it('does not show the scan progress when there are no files to scan', function () {
+    it('does not show the scan progress when there are no files to scan', function (): void {
         artisan(AuditTranslations::class)
             ->doesntExpectOutputToContain('0/0')
             ->assertSuccessful();
     });
 
-    it('fails naming the file that cannot be parsed', function () {
+    it('fails naming the file that cannot be parsed', function (): void {
         putFile('app/Broken.php', '<?php function (');
 
         artisan(AuditTranslations::class)
@@ -223,8 +223,8 @@ describe('file selection', function () {
     });
 });
 
-describe('translation detection', function () {
-    it('detects the translation key of a call', function (string $call) {
+describe('translation detection', function (): void {
+    it('detects the translation key of a call', function (string $call): void {
         putFile('app/Example.php', "<?php\n\nuse Illuminate\\Support\\Facades\\Lang;\nuse Illuminate\\Support\\Facades\\Lang as Translations;\n\n{$call};");
 
         artisan(AuditTranslations::class)
@@ -249,7 +249,7 @@ describe('translation detection', function () {
         'double quoted string' => '__("messages.welcome")',
     ]);
 
-    it('ignores calls without a static translation key', function (string $call) {
+    it('ignores calls without a static translation key', function (string $call): void {
         putFile('app/Example.php', "<?php\n\nuse Illuminate\\Support\\Facades\\Lang;\n\n{$call};");
 
         artisan(AuditTranslations::class)
@@ -273,7 +273,7 @@ describe('translation detection', function () {
         'first class callable translator method' => 'trans()->get(...)',
     ]);
 
-    it('detects translation keys in blade views', function (string $blade) {
+    it('detects translation keys in blade views', function (string $blade): void {
         putFile('resources/views/welcome.blade.php', $blade);
 
         artisan(AuditTranslations::class)
@@ -290,8 +290,8 @@ describe('translation detection', function () {
     ]);
 });
 
-describe('missing translations', function () {
-    it('reports only the locales missing a translation', function () {
+describe('missing translations', function (): void {
+    it('reports only the locales missing a translation', function (): void {
         putJsonTranslations('en', ['Hello' => 'Hello']);
         putFile('lang/it/messages.php', "<?php return ['welcome' => 'Benvenuto'];");
         putFile('app/Example.php', "<?php __('Hello'); __('messages.welcome'); __('messages.goodbye');");
@@ -305,7 +305,7 @@ describe('missing translations', function () {
             ->assertFailed();
     });
 
-    it('reports nothing when every key is translated in every locale', function () {
+    it('reports nothing when every key is translated in every locale', function (): void {
         putJsonTranslations('en', ['Hello' => 'Hello']);
         putJsonTranslations('it', ['Hello' => 'Ciao']);
         putFile('app/Example.php', "<?php __('Hello');");
@@ -315,7 +315,7 @@ describe('missing translations', function () {
             ->assertSuccessful();
     });
 
-    it('reports a key used many times in the same file once', function () {
+    it('reports a key used many times in the same file once', function (): void {
         putFile('app/Example.php', "<?php __('Hello'); trans('Hello'); Lang::get('Hello');");
 
         artisan(AuditTranslations::class)
@@ -325,7 +325,7 @@ describe('missing translations', function () {
             ->assertFailed();
     });
 
-    it('groups the missing keys by file', function () {
+    it('groups the missing keys by file', function (): void {
         putFile('app/First.php', "<?php __('One'); __('Two');");
         putFile('app/Second.php', "<?php __('One');");
         putJsonTranslations('it', ['One' => 'Uno', 'Two' => 'Due']);
