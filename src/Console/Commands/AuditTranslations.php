@@ -198,7 +198,7 @@ class AuditTranslations extends Command {
             $content = Blade::compileString($content);
         }
 
-        $statements = (new NodeTraverser(new NameResolver))->traverse($parser->parse($content) ?? []);
+        $statements = new NodeTraverser(new NameResolver)->traverse($parser->parse($content) ?? []);
         $node_finder = new NodeFinder;
 
         $function_calls = array_filter(
