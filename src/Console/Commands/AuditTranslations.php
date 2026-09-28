@@ -37,7 +37,7 @@ use function Safe\file_get_contents;
 class AuditTranslations extends Command {
     private const array TRANSLATION_FUNCTIONS = ['__', 'trans', 'trans_choice'];
 
-    private const array LANG_FACADES = ['Illuminate\Support\Facades\Lang', 'Lang'];
+    private const array LANG_FACADES = [Lang::class, 'Lang'];
 
     private const array TRANSLATOR_METHODS = ['get', 'string', 'array', 'choice', 'has', 'hasForLocale'];
 
@@ -116,7 +116,7 @@ class AuditTranslations extends Command {
             } catch (Exception $e) {
                 $this->newLine(2);
 
-                throw new RuntimeException("Unable to scan {$file->getPathname()}: {$e->getMessage()}", previous: $e);
+                throw new RuntimeException("Unable to scan {$file->getPathname()}: {$e->getMessage()}", $e->getCode(), previous: $e);
             }
 
             $progress_bar->setMessage($files->get($index + 1)?->getRelativePathname() ?? '');
@@ -203,21 +203,21 @@ class AuditTranslations extends Command {
 
         $function_calls = array_filter(
             $node_finder->findInstanceOf($statements, FuncCall::class),
-            fn (FuncCall $call) => $call->name instanceof Name
+            fn (FuncCall $call): bool => $call->name instanceof Name
                 && $call->args !== []
                 && \in_array($call->name->toString(), self::TRANSLATION_FUNCTIONS, true),
         );
 
         $static_calls = array_filter(
             $node_finder->findInstanceOf($statements, StaticCall::class),
-            fn (StaticCall $call) => $call->class instanceof Name
+            fn (StaticCall $call): bool => $call->class instanceof Name
                 && \in_array($call->class->toString(), self::LANG_FACADES, true)
                 && $this->isTranslatorMethod($call->name),
         );
 
         $method_calls = array_filter(
             $node_finder->findInstanceOf($statements, MethodCall::class),
-            fn (MethodCall $call) => $this->isTranslatorInstance($call->var)
+            fn (MethodCall $call): bool => $this->isTranslatorInstance($call->var)
                 && $this->isTranslatorMethod($call->name),
         );
 
