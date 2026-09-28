@@ -32,12 +32,12 @@
   },
   "autoload": {
     "psr-4": {
-      "TranslationAudit\\TranslationAudit\\": "src/"
+      "TranslationAudit\\": "src/"
     }
   },
   "autoload-dev": {
     "psr-4": {
-      "TranslationAudit\\TranslationAudit\\Tests\\": "tests/",
+      "TranslationAudit\\Tests\\": "tests/",
       "Workbench\\App\\": "workbench/app/",
       "Workbench\\Database\\Factories\\": "workbench/database/factories/",
       "Workbench\\Database\\Seeders\\": "workbench/database/seeders/"
