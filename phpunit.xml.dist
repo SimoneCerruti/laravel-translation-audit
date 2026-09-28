@@ -8,22 +8,27 @@
     processIsolation="false"
     stopOnFailure="false"
     executionOrder="random"
+    failOnNotice="true"
     failOnWarning="true"
     failOnRisky="true"
     failOnEmptyTestSuite="true"
     beStrictAboutOutputDuringTests="true"
-    cacheDirectory=".phpunit.cache"
+    cacheDirectory="build/phpunit/.phpunit.cache"
     backupStaticProperties="false"
+    displayDetailsOnIncompleteTests="true"
+    displayDetailsOnSkippedTests="true"
+    displayDetailsOnTestsThatTriggerDeprecations="true"
+    displayDetailsOnTestsThatTriggerErrors="true"
+    displayDetailsOnTestsThatTriggerNotices="true"
+    displayDetailsOnTestsThatTriggerWarnings="true"
 >
     <testsuites>
         <testsuite name="Arch">
             <file>tests/ArchTest.php</file>
         </testsuite>
         <testsuite name="Feature">
-            <directory>tests/Feature</directory>
-        </testsuite>
-        <testsuite name="Unit">
-            <directory>tests/Unit</directory>
+            <directory>tests</directory>
+            <exclude>tests/ArchTest.php</exclude>
         </testsuite>
     </testsuites>
     <source>
