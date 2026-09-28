@@ -76,17 +76,17 @@
     "stan": [
       "vendor/bin/phpstan analyse"
     ],
-    "stan:coverage": [
+    "coverage": [
       "vendor/bin/pest --type-coverage --min=100"
     ],
     "test": [
       "vendor/bin/pest --parallel"
     ],
     "qa": [
-      "@analyse",
-      "@lint:check",
-      "@test:types",
-      "@test:unit"
+      "@stan",
+      "@pint:dry",
+      "@coverage",
+      "@test"
     ],
     "clear": [
       "@php vendor/bin/testbench package:purge-skeleton --ansi"
