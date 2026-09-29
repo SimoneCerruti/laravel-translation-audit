@@ -58,18 +58,18 @@ jobs:
           composer run prepare
 
       - name: PHPStan
-        run: composer analyse
+        run: composer stan
 
       - name: Linter
-        run: composer lint:check
+        run: composer pint:dry
 
       - name: Type Coverage
         if: runner.os != 'Windows'
-        run: composer test:types
+        run: composer coverage
 
       - name: Test Suite
         if: runner.os != 'Windows'
-        run: composer test:unit
+        run: composer test
 
       - name: Test Suite (Windows)
         if: runner.os == 'Windows'
