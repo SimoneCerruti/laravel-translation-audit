@@ -93,7 +93,7 @@ describe('supported locales', function (): void {
 
         artisan(AuditTranslations::class)
             ->expectsTable(['File', 'Key', 'Missing locales'], [
-                [base_path('app/Greeter.php'), 'Hello', 'EN, IT'],
+                ['app/Greeter.php', 'Hello', 'EN, IT'],
             ])
             ->assertFailed();
     });
@@ -106,7 +106,7 @@ describe('supported locales', function (): void {
 
         artisan(AuditTranslations::class)
             ->expectsTable(['File', 'Key', 'Missing locales'], [
-                [base_path('app/Greeter.php'), 'Hello', 'DE, FR, IT'],
+                ['app/Greeter.php', 'Hello', 'DE, FR, IT'],
             ])
             ->assertFailed();
     });
@@ -117,7 +117,7 @@ describe('supported locales', function (): void {
 
         artisan(AuditTranslations::class)
             ->expectsTable(['File', 'Key', 'Missing locales'], [
-                [base_path('app/Greeter.php'), 'Hello', 'EN, IT'],
+                ['app/Greeter.php', 'Hello', 'EN, IT'],
             ])
             ->assertFailed();
     });
@@ -127,7 +127,7 @@ describe('supported locales', function (): void {
 
         artisan(AuditTranslations::class)
             ->expectsTable(['File', 'Key', 'Missing locales'], [
-                [base_path('app/Greeter.php'), 'Hello', 'IT'],
+                ['app/Greeter.php', 'Hello', 'IT'],
             ])
             ->assertFailed();
     });
@@ -159,9 +159,9 @@ describe('file selection', function (): void {
 
         artisan(AuditTranslations::class)
             ->expectsTable(['File', 'Key', 'Missing locales'], [
-                [base_path('app/Models/User.php'), 'User', 'EN, IT'],
+                ['app/Models/User.php', 'User', 'EN, IT'],
                 new TableSeparator,
-                [base_path('resources/views/welcome.blade.php'), 'Welcome', 'EN, IT'],
+                ['resources/views/welcome.blade.php', 'Welcome', 'EN, IT'],
             ])
             ->assertFailed();
     });
@@ -176,7 +176,7 @@ describe('file selection', function (): void {
         sort($names);
 
         $rows = collect($names)
-            ->flatMap(fn (string $name): array => [new TableSeparator, [base_path("app/{$name}.php"), $name, 'EN, IT']])
+            ->flatMap(fn (string $name): array => [new TableSeparator, ["app/{$name}.php", $name, 'EN, IT']])
             ->skip(1)
             ->values()
             ->all();
@@ -193,7 +193,7 @@ describe('file selection', function (): void {
 
         artisan(AuditTranslations::class)
             ->expectsTable(['File', 'Key', 'Missing locales'], [
-                [base_path('app/New.php'), 'New', 'EN, IT'],
+                ['app/New.php', 'New', 'EN, IT'],
             ])
             ->assertFailed();
     });
@@ -218,7 +218,7 @@ describe('file selection', function (): void {
         putFile('app/Broken.php', '<?php function (');
 
         artisan(AuditTranslations::class)
-            ->expectsOutputToContain('Unable to scan '.base_path('app/Broken.php').': Syntax error')
+            ->expectsOutputToContain('Unable to scan app/Broken.php: Syntax error')
             ->assertFailed();
     });
 });
@@ -229,7 +229,7 @@ describe('translation detection', function (): void {
 
         artisan(AuditTranslations::class)
             ->expectsTable(['File', 'Key', 'Missing locales'], [
-                [base_path('app/Example.php'), 'messages.welcome', 'EN, IT'],
+                ['app/Example.php', 'messages.welcome', 'EN, IT'],
             ])
             ->assertFailed();
     })->with([
@@ -278,7 +278,7 @@ describe('translation detection', function (): void {
 
         artisan(AuditTranslations::class)
             ->expectsTable(['File', 'Key', 'Missing locales'], [
-                [base_path('resources/views/welcome.blade.php'), 'messages.welcome', 'EN, IT'],
+                ['resources/views/welcome.blade.php', 'messages.welcome', 'EN, IT'],
             ])
             ->assertFailed();
     })->with([
@@ -298,7 +298,7 @@ describe('missing translations', function (): void {
 
         artisan(AuditTranslations::class)
             ->expectsTable(['File', 'Key', 'Missing locales'], [
-                [base_path('app/Example.php'), 'Hello', 'IT'],
+                ['app/Example.php', 'Hello', 'IT'],
                 ['', 'messages.welcome', 'EN'],
                 ['', 'messages.goodbye', 'EN, IT'],
             ])
@@ -320,7 +320,7 @@ describe('missing translations', function (): void {
 
         artisan(AuditTranslations::class)
             ->expectsTable(['File', 'Key', 'Missing locales'], [
-                [base_path('app/Example.php'), 'Hello', 'EN, IT'],
+                ['app/Example.php', 'Hello', 'EN, IT'],
             ])
             ->assertFailed();
     });
@@ -332,10 +332,10 @@ describe('missing translations', function (): void {
 
         artisan(AuditTranslations::class)
             ->expectsTable(['File', 'Key', 'Missing locales'], [
-                [base_path('app/First.php'), 'One', 'EN'],
+                ['app/First.php', 'One', 'EN'],
                 ['', 'Two', 'EN'],
                 new TableSeparator,
-                [base_path('app/Second.php'), 'One', 'EN'],
+                ['app/Second.php', 'One', 'EN'],
             ])
             ->assertFailed();
     });

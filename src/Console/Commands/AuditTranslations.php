@@ -111,12 +111,14 @@ class AuditTranslations extends Command {
         $progress_bar->start();
 
         foreach ($files as $index => $file) {
+            $relative_path = str_replace('\\', '/', $file->getRelativePathname());
+
             try {
-                $this->translation_keys[$file->getPathname()] = $this->findTranslationKeysInFile($file);
+                $this->translation_keys[$relative_path] = $this->findTranslationKeysInFile($file);
             } catch (Exception $e) {
                 $this->newLine(2);
 
-                throw new RuntimeException("Unable to scan {$file->getPathname()}: {$e->getMessage()}", $e->getCode(), previous: $e);
+                throw new RuntimeException("Unable to scan {$relative_path}: {$e->getMessage()}", $e->getCode(), previous: $e);
             }
 
             $progress_bar->setMessage($files->get($index + 1)?->getRelativePathname() ?? '');
