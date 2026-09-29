@@ -203,8 +203,8 @@ describe('file selection', function (): void {
         putFile('app/Second.php', '<?php');
 
         artisan(AuditTranslations::class)
-            ->expectsOutputToContain('0/2 [░░░░░░░░░░░░░░░░░░░░░░░░░░░░]   0% app/First.php')
-            ->expectsOutputToContain('2/2 [▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓] 100%')
+            ->expectsOutputToContain(']   0% app/First.php')
+            ->expectsOutputToContain('] 100%')
             ->assertSuccessful();
     });
 

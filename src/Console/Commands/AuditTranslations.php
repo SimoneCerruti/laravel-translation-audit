@@ -114,11 +114,11 @@ class AuditTranslations extends Command {
 
         $progress_bar = $this->output->createProgressBar($files->count());
         $progress_bar->setFormat('%current%/%max% [%bar%] %percent:3s%% %message%');
-        $progress_bar->setMessage($files->first()->getRelativePathname());
+        $progress_bar->setMessage($this->getRelativePath($files->first()));
         $progress_bar->start();
 
         foreach ($files as $index => $file) {
-            $relative_path = str_replace('\\', '/', $file->getRelativePathname());
+            $relative_path = $this->getRelativePath($file);
 
             try {
                 $this->translation_keys[$relative_path] = $this->findTranslationKeysInFile($file);
@@ -128,7 +128,8 @@ class AuditTranslations extends Command {
                 throw new RuntimeException("Unable to scan {$relative_path}: {$e->getMessage()}", $e->getCode(), previous: $e);
             }
 
-            $progress_bar->setMessage($files->get($index + 1)?->getRelativePathname() ?? '');
+            $next_file = $files->get($index + 1);
+            $progress_bar->setMessage($next_file ? $this->getRelativePath($next_file) : '');
             $progress_bar->advance();
         }
 
@@ -206,9 +207,14 @@ class AuditTranslations extends Command {
             return true;
         }
 
-        $relative_path = str_replace('\\', '/', $file->getRelativePathname());
+        $relative_path = $this->getRelativePath($file);
 
         return array_all($this->ignore_links, fn (string $ignore_link): bool => preg_match(Glob::toRegex($ignore_link), $relative_path) !== 1);
+    }
+
+    /** The file path relative to the project root, with forward slashes on every OS. */
+    private function getRelativePath(SplFileInfo $file): string {
+        return str_replace('\\', '/', $file->getRelativePathname());
     }
 
     /** @return list<non-falsy-string> */
