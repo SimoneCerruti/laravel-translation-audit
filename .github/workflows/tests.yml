@@ -46,6 +46,11 @@ jobs:
           tools: composer:v2
           coverage: none
 
+      # The PHPStan and Rector Pest plugins only support Pest 5, which needs a PHPUnit version Testbench 10 conflicts with.
+      - name: Remove the Pest 5 only plugins
+        if: matrix.laravel == '12.*'
+        run: composer remove pestphp/pest-plugin-phpstan pestphp/pest-plugin-rector --dev --no-interaction --no-update
+
       - name: Install dependencies
         run: |
           composer require "laravel/framework:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" --no-interaction --no-update
