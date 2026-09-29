@@ -5,7 +5,13 @@ on:
     branches:
       - main
       - '*.x'
+    paths-ignore:
+      - '**.md'
+      - '.github/ISSUE_TEMPLATE/**'
   pull_request:
+    paths-ignore:
+      - '**.md'
+      - '.github/ISSUE_TEMPLATE/**'
 
 permissions:
   contents: read
