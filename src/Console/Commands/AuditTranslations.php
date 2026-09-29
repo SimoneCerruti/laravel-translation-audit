@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace TranslationAudit\Console\Commands;
 
 use Exception;
-use Illuminate\Console\Attributes\Description;
-use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Blade;
@@ -33,9 +31,13 @@ use TranslationAudit\Exceptions\InvalidConfigException;
 use function Safe\file_get_contents;
 use function Safe\preg_match;
 
-#[Signature('translation:audit {--follow-links : Follow symbolic links while looking for the files to scan}')]
-#[Description('Audit your app for missing or unused translations.')]
 class AuditTranslations extends Command {
+    /** @var string */
+    protected $signature = 'translation:audit {--follow-links : Follow symbolic links while looking for the files to scan}';
+
+    /** @var string */
+    protected $description = 'Audit your app for missing or unused translations.';
+
     private const array TRANSLATION_FUNCTIONS = ['__', 'trans', 'trans_choice'];
 
     private const array LANG_FACADES = [Lang::class, 'Lang'];
