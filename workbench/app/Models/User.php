@@ -29,4 +29,8 @@ class User extends Authenticatable {
             'password' => 'hashed',
         ];
     }
+
+    public function test(): string {
+        return __('Test');
+    }
 }

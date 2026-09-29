@@ -2,6 +2,7 @@ laravel: '@testbench'
 
 providers:
   # - Workbench\App\Providers\WorkbenchServiceProvider
+  - TranslationAudit\TranslationAuditServiceProvider
 
 migrations:
   - workbench/database/migrations
@@ -14,6 +15,7 @@ workbench:
   install: true
   health: false
   discovers:
+    config: true
     web: true
     api: true
     commands: true
@@ -31,3 +33,9 @@ workbench:
     - from: storage
       to: workbench/storage
       reverse: true
+    - from: workbench/lang
+      to: lang
+    - from: workbench/resources/views
+      to: resources/views
+    - from: workbench/app
+      to: app
