@@ -52,6 +52,14 @@ php artisan translation:audit
 
 The command exits with a non-zero status code when it finds missing translations, so it can be used to fail a CI pipeline.
 
+Symbolic links are not followed by default. Pass `--follow-links` to scan the files behind them as well:
+
+```bash
+php artisan translation:audit --follow-links
+```
+
+The links matching the `ignore_links` glob patterns in the config file, `vendor` and `node_modules` by default, are never followed.
+
 ## Changelog
 
 Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed recently.

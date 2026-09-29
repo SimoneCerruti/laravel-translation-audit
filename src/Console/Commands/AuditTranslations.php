@@ -31,8 +31,9 @@ use Symfony\Component\Finder\SplFileInfo;
 use TranslationAudit\Exceptions\InvalidConfigException;
 
 use function Safe\file_get_contents;
+use function Safe\preg_match;
 
-#[Signature('translation:audit')]
+#[Signature('translation:audit {--follow-links : Follow symbolic links while looking for the files to scan}')]
 #[Description('Audit your app for missing or unused translations.')]
 class AuditTranslations extends Command {
     private const array TRANSLATION_FUNCTIONS = ['__', 'trans', 'trans_choice'];
@@ -46,6 +47,9 @@ class AuditTranslations extends Command {
 
     /** @var list<non-falsy-string> */
     private array $ignore_paths = [];
+
+    /** @var list<non-falsy-string> */
+    private array $ignore_links = [];
 
     /** @var list<non-falsy-string> */
     private array $ignore_locales = [];
@@ -63,6 +67,7 @@ class AuditTranslations extends Command {
             $this->warnForHeavyPaths();
 
             $this->ignore_paths = $this->getConfigArray('ignore_paths');
+            $this->ignore_links = $this->getConfigArray('ignore_links');
             $this->ignore_locales = $this->getConfigArray('ignore_locales');
             $this->supported_locales = $this->getSupportedLocales();
         } catch (InvalidConfigException $e) {
@@ -179,6 +184,10 @@ class AuditTranslations extends Command {
     private function getFilesToAudit(): Collection {
         $finder = Finder::create()->files()->in(base_path());
 
+        if ($this->option('follow-links') === true) {
+            $finder->followLinks()->filter($this->isNotIgnoredLink(...), prune: true);
+        }
+
         foreach ($this->scan_paths as $scan_path) {
             $finder->path(Glob::toRegex($scan_path));
         }
@@ -188,6 +197,16 @@ class AuditTranslations extends Command {
         }
 
         return collect($finder->sortByName())->values();
+    }
+
+    private function isNotIgnoredLink(SplFileInfo $file): bool {
+        if (! $file->isLink()) {
+            return true;
+        }
+
+        $relative_path = str_replace('\\', '/', $file->getRelativePathname());
+
+        return array_all($this->ignore_links, fn (string $ignore_link): bool => preg_match(Glob::toRegex($ignore_link), $relative_path) !== 1);
     }
 
     /** @return list<non-falsy-string> */

@@ -40,3 +40,11 @@ function putFile(string $relative_path, string $contents): void {
 function putJsonTranslations(string $locale, array $translations): void {
     putFile("lang/{$locale}.json", json_encode($translations, JSON_THROW_ON_ERROR));
 }
+
+/** Create a symbolic link at the given path pointing to the given target, both relative to the application base path. */
+function putLink(string $relative_target, string $relative_link): void {
+    $link = base_path($relative_link);
+
+    File::ensureDirectoryExists(dirname($link));
+    symlink(base_path($relative_target), $link);
+}
