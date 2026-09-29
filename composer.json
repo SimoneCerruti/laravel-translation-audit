@@ -20,7 +20,7 @@
     "php": "^8.4",
     "illuminate/support": "^12.0||^13.0",
     "nikic/php-parser": "^5.9",
-    "symfony/finder": "^8.1",
+    "symfony/finder": "^7.4.19||^8.1.7",
     "thecodingmachine/safe": "^3.4"
   },
   "require-dev": {
