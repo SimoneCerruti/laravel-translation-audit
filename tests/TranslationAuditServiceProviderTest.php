@@ -8,7 +8,7 @@ use TranslationAudit\Console\Commands\AuditTranslations;
 use TranslationAudit\TranslationAuditServiceProvider;
 
 it('merges the package config', function (): void {
-    expect(config('translation-audit.scan_paths'))->toBe(['app/**/*.php', 'resources/views/**/*blade.php'])
+    expect(config('translation-audit.scan_paths'))->toBe(['app/**/*.php', 'resources/views/**/*.blade.php'])
         ->and(config('translation-audit.ignore_paths'))->toBe([])
         ->and(config('translation-audit.ignore_locales'))->toBe([])
         ->and(config('translation-audit.supported_locales'))->toBe(['auto']);

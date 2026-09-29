@@ -6,7 +6,7 @@ return [
     // Glob patterns, relative to the project root, of the files to scan for translation keys.
     'scan_paths' => [
         'app/**/*.php',
-        'resources/views/**/*blade.php',
+        'resources/views/**/*.blade.php',
     ],
 
     // Glob patterns, relative to the project root, of the files to skip even when they match a scan path.
