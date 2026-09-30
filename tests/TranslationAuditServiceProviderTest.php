@@ -18,7 +18,7 @@ it('merges the package config', function (): void {
         ->and(config('translation-audit.save_format'))->toBe('json')
         ->and(str_replace('\\', '/', config('translation-audit.save_path')))->toEndWith('/storage/app/private/translation-audits')
         ->and(config('translation-audit.save_name'))->toBe('translation-audit-{now:d_M_Y_H_i}-{random:8}')
-        ->and(config('translation-audit.display_format'))->toBe('table');
+        ->and(config('translation-audit.display_format'))->toBe('list');
 });
 
 it('registers the artisan command', function (): void {

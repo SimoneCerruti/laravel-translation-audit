@@ -43,5 +43,5 @@ return [
     'ignore_keys' => [],
 
     // Format in which the audit result is displayed in the console. Supported formats: json, list, table. The --display-format option overrides it.
-    'display_format' => 'table',
+    'display_format' => 'list',
 ];

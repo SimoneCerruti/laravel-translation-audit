@@ -644,9 +644,10 @@ describe('display format', function (): void {
         putFile('app/Example.php', "<?php __('Hello');");
     });
 
-    it('prints the result as a table by default', function (): void {
+    it('prints the result as a list by default', function (): void {
         artisan(AuditTranslations::class)
-            ->expectsOutput('| app/Example.php | Hello | EN, IT          |')
+            ->expectsOutput('  app/Example.php')
+            ->expectsOutput('    EN, IT  Hello')
             ->expectsOutput('Found 1 key with missing translations in 1 file.')
             ->assertFailed();
     });

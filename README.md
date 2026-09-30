@@ -50,11 +50,25 @@ The workflow is published to `.github/workflows/audit-translations.yml` and runs
 php artisan translation:audit
 ```
 
+The command lists the keys with missing translations grouped by file, each preceded by the locales it is missing in:
+
+```text
+  app/Http/Controllers/Auth/LoginController.php
+    IT      auth.failed
+    EN, IT  Welcome back! Please sign in to continue with your
+            account.
+
+  resources/views/welcome.blade.php
+    IT      messages.welcome
+
+Found 3 keys with missing translations in 2 files.
+```
+
 The command exits with a non-zero status code when it finds missing translations, so it can be used to fail a CI pipeline.
 
 ### Choosing the Display Format
 
-The result is printed as a table by default. Pass `--display-format`, or set `display_format` in the config file, to print it in another format. The option overrides the config for a single run.
+The result is printed as a list by default. Pass `--display-format`, or set `display_format` in the config file, to print it in another format. The option overrides the config for a single run.
 
 | Format | Description |
 | --- | --- |
