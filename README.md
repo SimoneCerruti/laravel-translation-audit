@@ -52,6 +52,26 @@ php artisan translation:audit
 
 The command exits with a non-zero status code when it finds missing translations, so it can be used to fail a CI pipeline.
 
+### Choosing the Display Format
+
+The result is printed as a table by default. Pass `--display-format`, or set `display_format` in the config file, to print it in another format. The option overrides the config for a single run.
+
+| Format | Description |
+| --- | --- |
+| `list` | The keys grouped by file, each preceded by the locales it is missing in. Long keys wrap to the width of the terminal. |
+| `table` | A row for each key, with a section for each file. |
+| `json` | The missing locales of each key, grouped by file, as JSON on a single line. |
+
+```bash
+php artisan translation:audit --display-format=json
+```
+
+```json
+{"app/Http/Controllers/HomeController.php":{"auth.failed":["it"],"messages.welcome":["en","it"]},"resources/views/welcome.blade.php":{"Welcome back!":["it"]}}
+```
+
+Every format is followed by a summary, like `Found 3 keys with missing translations in 2 files.`
+
 ### Ignoring Keys
 
 List the translation keys to leave out of the audit in the `ignore_keys` config. A plain key is ignored for every locale, while a key mapped to a list of locales is ignored only for those locales:

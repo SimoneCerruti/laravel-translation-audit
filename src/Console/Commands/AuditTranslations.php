@@ -25,10 +25,12 @@ use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitor\NameResolver;
 use PhpParser\ParserFactory;
 use RuntimeException;
-use Symfony\Component\Console\Helper\TableSeparator;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\Finder\Glob;
 use Symfony\Component\Finder\SplFileInfo;
+use TranslationAudit\Actions\PrintResultAsJson;
+use TranslationAudit\Actions\PrintResultAsList;
+use TranslationAudit\Actions\PrintResultAsTable;
 use TranslationAudit\Exceptions\InvalidConfigException;
 use TranslationAudit\Support\CommandOptionHelper;
 
@@ -49,12 +51,15 @@ class AuditTranslations extends Command {
             {--save-format= : The format in which to save the audit result. Supported formats: json. Overrides the save_format config}
             {--save-path= : The path in which to save the audit result. Overrides the save_path config}
             {--save-name= : The name of the file to save the audit result to, without the extension. It supports the following patterns, which have to be wrapped in curly braces: - now:<format>: inserts the current date in the specified format; - random:<length>: inserts random alphanumeric characters (a-zA-Z0-9). Overrides the save_name config}
+            {--display-format= : The format in which to display the audit result. Supported formats: json, list, table. Overrides the display_format config}
     TXT;
 
     /** @var string */
     protected $description = 'Audit your app for missing or unused translations.';
 
     private const array SUPPORTED_SAVE_FORMATS = ['json'];
+
+    private const array SUPPORTED_DISPLAY_FORMATS = ['json', 'list', 'table'];
 
     private const array TRANSLATION_FUNCTIONS = ['__', 'trans', 'trans_choice'];
 
@@ -93,6 +98,9 @@ class AuditTranslations extends Command {
     /** @var array<non-empty-string, list<non-empty-string>|null> Ignored keys mapped to their ignored locales, null for all locales. */
     private array $ignore_keys = [];
 
+    /** @var value-of<self::SUPPORTED_DISPLAY_FORMATS> */
+    private string $display_format = 'list';
+
     private CommandOptionHelper $options_helper;
 
     public function handle(): int {
@@ -109,6 +117,7 @@ class AuditTranslations extends Command {
             $this->save_format = $this->should_save_result ? $this->getSaveFormat() : null;
             $this->save_path = $this->should_save_result ? $this->getSavePath() : null;
             $this->ignore_keys = $this->getIgnoreKeys();
+            $this->display_format = $this->getDisplayFormat();
 
             $this->warnForHeavyPaths();
         } catch (InvalidConfigException|InvalidArgumentException $e) {
@@ -141,10 +150,9 @@ class AuditTranslations extends Command {
             return self::SUCCESS;
         }
 
-        $this->table(
-            ['File', 'Key', 'Missing locales'],
-            $this->buildAuditResultTableRows($missing),
-        );
+        $this->printAuditResult($missing);
+        $this->newLine();
+        $this->printResultSummary($missing);
 
         return self::FAILURE;
     }
@@ -204,30 +212,29 @@ class AuditTranslations extends Command {
 
     /**
      * @param  MissingTranslations&non-empty-array  $missing
-     * @return list<array{string, non-falsy-string, string}|TableSeparator>
      */
-    private function buildAuditResultTableRows(array $missing): array {
-        $rows = [];
+    private function printAuditResult(array $missing): void {
+        match ($this->display_format) {
+            'list' => app(PrintResultAsList::class)->handle($missing, $this->output),
+            'json' => app(PrintResultAsJson::class)->handle($missing, $this->output),
+            'table' => app(PrintResultAsTable::class)->handle($missing, $this->output),
+        };
+    }
 
-        foreach ($missing as $file_path => $keys) {
-            if ($rows !== []) {
-                $rows[] = new TableSeparator;
-            }
+    /**
+     * @param  MissingTranslations&non-empty-array  $missing
+     */
+    private function printResultSummary(array $missing): void {
+        $keys_count = array_sum(array_map(count(...), $missing));
+        $files_count = \count($missing);
 
-            $is_first_row = true;
-
-            foreach ($keys as $key => $missing_locales) {
-                $rows[] = [
-                    $is_first_row ? $file_path : '',
-                    $key,
-                    implode(', ', array_map(strtoupper(...), $missing_locales)),
-                ];
-
-                $is_first_row = false;
-            }
-        }
-
-        return $rows;
+        $this->error(\sprintf(
+            'Found %d %s with missing translations in %d %s.',
+            $keys_count,
+            Str::plural('key', $keys_count),
+            $files_count,
+            Str::plural('file', $files_count),
+        ));
     }
 
     /** @return Collection<int, SplFileInfo> */
@@ -523,5 +530,18 @@ class AuditTranslations extends Command {
             'random' => Str::random((int) (($n = $m[2] ?? 8) < 0 ? 8 : $n)),
             default => $m[0],
         }, $name);
+    }
+
+    /**
+     * @return value-of<self::SUPPORTED_DISPLAY_FORMATS>
+     *
+     * @throws InvalidConfigException
+     */
+    private function getDisplayFormat(): string {
+        $format = $this->options_helper->nonEmptyStringOrConfig('display-format', 'translation-audit.display_format');
+
+        throw_unless(\in_array($format, self::SUPPORTED_DISPLAY_FORMATS), InvalidConfigException::class, "Invalid display format '{$format}'. Supported formats: ".implode(', ', self::SUPPORTED_DISPLAY_FORMATS));
+
+        return $format;
     }
 }

@@ -3,8 +3,12 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\File;
+use Illuminate\Testing\PendingCommand;
 use Symfony\Component\Finder\SplFileInfo;
+use TranslationAudit\Console\Commands\AuditTranslations;
 use TranslationAudit\Tests\TestCase;
+
+use function Pest\Laravel\artisan;
 
 pest()->extend(TestCase::class)->in(__DIR__);
 
@@ -75,4 +79,26 @@ function getFirstAuditSaveFileJsonContent(): mixed {
     expect($contents)->toBeJson();
 
     return json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
+}
+
+/**
+ * Run the audit printing the result in the json display format, so the expected result can be asserted as a whole.
+ *
+ * @param  array<string, mixed>  $parameters
+ */
+function auditAsJson(array $parameters = []): PendingCommand {
+    $command = artisan(AuditTranslations::class, ['--display-format' => 'json', ...$parameters]);
+
+    expect($command)->toBeInstanceOf(PendingCommand::class);
+
+    return $command;
+}
+
+/**
+ * Encode the missing locales of each key, grouped by file, as the json display format prints them.
+ *
+ * @param  array<string, array<string, list<string>>>  $missing
+ */
+function resultJson(array $missing): string {
+    return json_encode($missing, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
 }

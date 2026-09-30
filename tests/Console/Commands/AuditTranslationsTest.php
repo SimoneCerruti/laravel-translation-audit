@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use Illuminate\Support\Carbon;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Helper\TableSeparator;
 use TranslationAudit\Console\Commands\AuditTranslations;
 
 use function Pest\Laravel\artisan;
@@ -93,10 +92,8 @@ describe('supported locales', function (): void {
     it('uses the configured locales when not auto', function (): void {
         populateLangDir(files: ['fr.json'], directories: ['es']);
 
-        artisan(AuditTranslations::class)
-            ->expectsTable(['File', 'Key', 'Missing locales'], [
-                ['app/Greeter.php', 'Hello', 'EN, IT'],
-            ])
+        auditAsJson()
+            ->expectsOutput(resultJson(['app/Greeter.php' => ['Hello' => ['en', 'it']]]))
             ->assertFailed();
     });
 
@@ -106,10 +103,8 @@ describe('supported locales', function (): void {
         putFile('lang/README.md', '');
         putFile('lang/en.php', '<?php return [];');
 
-        artisan(AuditTranslations::class)
-            ->expectsTable(['File', 'Key', 'Missing locales'], [
-                ['app/Greeter.php', 'Hello', 'DE, FR, IT'],
-            ])
+        auditAsJson()
+            ->expectsOutput(resultJson(['app/Greeter.php' => ['Hello' => ['de', 'fr', 'it']]]))
             ->assertFailed();
     });
 
@@ -117,20 +112,16 @@ describe('supported locales', function (): void {
         config(['translation-audit.supported_locales' => ['auto']]);
         populateLangDir(files: ['en.json', 'it/fr.json', 'vendor/some-package/es.json'], directories: ['it/de', 'vendor/some-package']);
 
-        artisan(AuditTranslations::class)
-            ->expectsTable(['File', 'Key', 'Missing locales'], [
-                ['app/Greeter.php', 'Hello', 'EN, IT'],
-            ])
+        auditAsJson()
+            ->expectsOutput(resultJson(['app/Greeter.php' => ['Hello' => ['en', 'it']]]))
             ->assertFailed();
     });
 
     it('does not audit ignored locales', function (): void {
         config(['translation-audit.ignore_locales' => ['en']]);
 
-        artisan(AuditTranslations::class)
-            ->expectsTable(['File', 'Key', 'Missing locales'], [
-                ['app/Greeter.php', 'Hello', 'IT'],
-            ])
+        auditAsJson()
+            ->expectsOutput(resultJson(['app/Greeter.php' => ['Hello' => ['it']]]))
             ->assertFailed();
     });
 
@@ -160,11 +151,8 @@ describe('ignored keys', function (): void {
     it('ignores the keys for every locale or only for the listed locales', function (): void {
         config(['translation-audit.ignore_keys' => ['Hello', 'Hi' => ['en']]]);
 
-        artisan(AuditTranslations::class)
-            ->expectsTable(['File', 'Key', 'Missing locales'], [
-                ['app/Greeter.php', 'Hi', 'IT'],
-                ['', 'Bye', 'EN, IT'],
-            ])
+        auditAsJson()
+            ->expectsOutput(resultJson(['app/Greeter.php' => ['Hi' => ['it'], 'Bye' => ['en', 'it']]]))
             ->assertFailed();
     });
 
@@ -218,12 +206,11 @@ describe('file selection', function (): void {
         putFile('app/notes.txt', "<?php __('Notes');");
         putFile('routes/web.php', "<?php __('Route');");
 
-        artisan(AuditTranslations::class)
-            ->expectsTable(['File', 'Key', 'Missing locales'], [
-                ['app/Models/User.php', 'User', 'EN, IT'],
-                new TableSeparator,
-                ['resources/views/welcome.blade.php', 'Welcome', 'EN, IT'],
-            ])
+        auditAsJson()
+            ->expectsOutput(resultJson([
+                'app/Models/User.php' => ['User' => ['en', 'it']],
+                'resources/views/welcome.blade.php' => ['Welcome' => ['en', 'it']],
+            ]))
             ->assertFailed();
     });
 
@@ -236,14 +223,8 @@ describe('file selection', function (): void {
 
         sort($names);
 
-        $rows = collect($names)
-            ->flatMap(fn (string $name): array => [new TableSeparator, ["app/{$name}.php", $name, 'EN, IT']])
-            ->skip(1)
-            ->values()
-            ->all();
-
-        artisan(AuditTranslations::class)
-            ->expectsTable(['File', 'Key', 'Missing locales'], $rows)
+        auditAsJson()
+            ->expectsOutput(resultJson(collect($names)->mapWithKeys(fn (string $name): array => ["app/{$name}.php" => [$name => ['en', 'it']]])->all()))
             ->assertFailed();
     });
 
@@ -252,10 +233,8 @@ describe('file selection', function (): void {
         putFile('app/Legacy/Old.php', "<?php __('Old');");
         putFile('app/New.php', "<?php __('New');");
 
-        artisan(AuditTranslations::class)
-            ->expectsTable(['File', 'Key', 'Missing locales'], [
-                ['app/New.php', 'New', 'EN, IT'],
-            ])
+        auditAsJson()
+            ->expectsOutput(resultJson(['app/New.php' => ['New' => ['en', 'it']]]))
             ->assertFailed();
     });
 
@@ -298,26 +277,20 @@ describe('symbolic links', function (): void {
 
     describe('--follow-links option', function (): void {
         it('follows symbolic links with the follow links option', function (): void {
-            artisan(AuditTranslations::class, ['--follow-links' => true])
-                ->expectsTable(['File', 'Key', 'Missing locales'], [
-                    ['resources/views/welcome.blade.php', 'Welcome', 'EN, IT'],
-                ])
+            auditAsJson(['--follow-links' => true])
+                ->expectsOutput(resultJson(['resources/views/welcome.blade.php' => ['Welcome' => ['en', 'it']]]))
                 ->assertFailed();
         });
 
         it('follows symbolic links with the follow links option without a value', function (): void {
-            artisan(AuditTranslations::class, ['--follow-links' => null])
-                ->expectsTable(['File', 'Key', 'Missing locales'], [
-                    ['resources/views/welcome.blade.php', 'Welcome', 'EN, IT'],
-                ])
+            auditAsJson(['--follow-links' => null])
+                ->expectsOutput(resultJson(['resources/views/welcome.blade.php' => ['Welcome' => ['en', 'it']]]))
                 ->assertFailed();
         });
 
         it('follows symbolic links with the follow links option set to true', function (): void {
-            artisan(AuditTranslations::class, ['--follow-links' => 'true'])
-                ->expectsTable(['File', 'Key', 'Missing locales'], [
-                    ['resources/views/welcome.blade.php', 'Welcome', 'EN, IT'],
-                ])
+            auditAsJson(['--follow-links' => 'true'])
+                ->expectsOutput(resultJson(['resources/views/welcome.blade.php' => ['Welcome' => ['en', 'it']]]))
                 ->assertFailed();
         });
 
@@ -343,10 +316,8 @@ describe('symbolic links', function (): void {
         it('follows symbolic links when the config always follows them', function (): void {
             config(['translation-audit.always_follow_links' => true]);
 
-            artisan(AuditTranslations::class)
-                ->expectsTable(['File', 'Key', 'Missing locales'], [
-                    ['resources/views/welcome.blade.php', 'Welcome', 'EN, IT'],
-                ])
+            auditAsJson()
+                ->expectsOutput(resultJson(['resources/views/welcome.blade.php' => ['Welcome' => ['en', 'it']]]))
                 ->assertFailed();
         });
     });
@@ -359,12 +330,11 @@ describe('symbolic links', function (): void {
             putLink('shared/legacy', 'app/LegacyModule');
             putLink('shared/modern', 'app/Module');
 
-            artisan(AuditTranslations::class, ['--follow-links' => true])
-                ->expectsTable(['File', 'Key', 'Missing locales'], [
-                    ['app/Module/New.php', 'New', 'EN, IT'],
-                    new TableSeparator,
-                    ['resources/views/welcome.blade.php', 'Welcome', 'EN, IT'],
-                ])
+            auditAsJson(['--follow-links' => true])
+                ->expectsOutput(resultJson([
+                    'app/Module/New.php' => ['New' => ['en', 'it']],
+                    'resources/views/welcome.blade.php' => ['Welcome' => ['en', 'it']],
+                ]))
                 ->assertFailed();
         });
 
@@ -373,10 +343,8 @@ describe('symbolic links', function (): void {
             putLink('shared/vendor', 'vendor');
             config(['translation-audit.scan_paths' => ['vendor/**/*.php', 'resources/views/**/*blade.php']]);
 
-            artisan(AuditTranslations::class, ['--follow-links' => true])
-                ->expectsTable(['File', 'Key', 'Missing locales'], [
-                    ['resources/views/welcome.blade.php', 'Welcome', 'EN, IT'],
-                ])
+            auditAsJson(['--follow-links' => true])
+                ->expectsOutput(resultJson(['resources/views/welcome.blade.php' => ['Welcome' => ['en', 'it']]]))
                 ->assertFailed();
         });
     });
@@ -559,10 +527,8 @@ describe('translation detection', function (): void {
     it('detects the translation key of a call', function (string $call): void {
         putFile('app/Example.php', "<?php\n\nuse Illuminate\\Support\\Facades\\Lang;\nuse Illuminate\\Support\\Facades\\Lang as Translations;\n\n{$call};");
 
-        artisan(AuditTranslations::class)
-            ->expectsTable(['File', 'Key', 'Missing locales'], [
-                ['app/Example.php', 'messages.welcome', 'EN, IT'],
-            ])
+        auditAsJson()
+            ->expectsOutput(resultJson(['app/Example.php' => ['messages.welcome' => ['en', 'it']]]))
             ->assertFailed();
     })->with([
         '__()' => "__('messages.welcome')",
@@ -608,10 +574,8 @@ describe('translation detection', function (): void {
     it('detects translation keys in blade views', function (string $blade): void {
         putFile('resources/views/welcome.blade.php', $blade);
 
-        artisan(AuditTranslations::class)
-            ->expectsTable(['File', 'Key', 'Missing locales'], [
-                ['resources/views/welcome.blade.php', 'messages.welcome', 'EN, IT'],
-            ])
+        auditAsJson()
+            ->expectsOutput(resultJson(['resources/views/welcome.blade.php' => ['messages.welcome' => ['en', 'it']]]))
             ->assertFailed();
     })->with([
         'echo' => "<h1>{{ __('messages.welcome') }}</h1>",
@@ -628,12 +592,12 @@ describe('missing translations', function (): void {
         putFile('lang/it/messages.php', "<?php return ['welcome' => 'Benvenuto'];");
         putFile('app/Example.php', "<?php __('Hello'); __('messages.welcome'); __('messages.goodbye');");
 
-        artisan(AuditTranslations::class)
-            ->expectsTable(['File', 'Key', 'Missing locales'], [
-                ['app/Example.php', 'Hello', 'IT'],
-                ['', 'messages.welcome', 'EN'],
-                ['', 'messages.goodbye', 'EN, IT'],
-            ])
+        auditAsJson()
+            ->expectsOutput(resultJson(['app/Example.php' => [
+                'Hello' => ['it'],
+                'messages.welcome' => ['en'],
+                'messages.goodbye' => ['en', 'it'],
+            ]]))
             ->assertFailed();
     });
 
@@ -650,10 +614,8 @@ describe('missing translations', function (): void {
     it('reports a key used many times in the same file once', function (): void {
         putFile('app/Example.php', "<?php __('Hello'); trans('Hello'); Lang::get('Hello');");
 
-        artisan(AuditTranslations::class)
-            ->expectsTable(['File', 'Key', 'Missing locales'], [
-                ['app/Example.php', 'Hello', 'EN, IT'],
-            ])
+        auditAsJson()
+            ->expectsOutput(resultJson(['app/Example.php' => ['Hello' => ['en', 'it']]]))
             ->assertFailed();
     });
 
@@ -662,13 +624,57 @@ describe('missing translations', function (): void {
         putFile('app/Second.php', "<?php __('One');");
         putJsonTranslations('it', ['One' => 'Uno', 'Two' => 'Due']);
 
-        artisan(AuditTranslations::class)
-            ->expectsTable(['File', 'Key', 'Missing locales'], [
-                ['app/First.php', 'One', 'EN'],
-                ['', 'Two', 'EN'],
-                new TableSeparator,
-                ['app/Second.php', 'One', 'EN'],
-            ])
+        auditAsJson()
+            ->expectsOutput(resultJson([
+                'app/First.php' => ['One' => ['en'], 'Two' => ['en']],
+                'app/Second.php' => ['One' => ['en']],
+            ]))
             ->assertFailed();
     });
+});
+
+dataset('display formats', [
+    'list' => ['list', 'EN, IT  Hello'],
+    'table' => ['table', '| app/Example.php | Hello | EN, IT          |'],
+    'json' => ['json', '{"app/Example.php":{"Hello":["en","it"]}}'],
+]);
+
+describe('display format', function (): void {
+    beforeEach(function (): void {
+        putFile('app/Example.php', "<?php __('Hello');");
+    });
+
+    it('prints the result as a table by default', function (): void {
+        artisan(AuditTranslations::class)
+            ->expectsOutput('| app/Example.php | Hello | EN, IT          |')
+            ->expectsOutput('Found 1 key with missing translations in 1 file.')
+            ->assertFailed();
+    });
+
+    it('prints the result in the format given by the option', function (string $format, string $output): void {
+        artisan(AuditTranslations::class, ['--display-format' => $format])
+            ->expectsOutputToContain($output)
+            ->expectsOutputToContain('Found 1 key with missing translations in 1 file.')
+            ->assertFailed();
+    })->with('display formats');
+
+    it('prints the result in the format given by the config', function (string $format, string $output): void {
+        config(['translation-audit.display_format' => $format]);
+
+        artisan(AuditTranslations::class)
+            ->expectsOutputToContain($output)
+            ->expectsOutputToContain('Found 1 key with missing translations in 1 file.')
+            ->assertFailed();
+    })->with('display formats');
+
+    it('fails when the display format is not supported', function (Closure $configure, array $options): void {
+        $configure();
+
+        artisan(AuditTranslations::class, $options)
+            ->expectsOutputToContain("Invalid display format 'unsupported_format'. Supported formats: json, list, table")
+            ->assertExitCode(Command::INVALID);
+    })->with([
+        'option' => [fn (): null => null, ['--display-format' => 'unsupported_format']],
+        'config' => [fn () => config(['translation-audit.display_format' => 'unsupported_format']), []],
+    ]);
 });

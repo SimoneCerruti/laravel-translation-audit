@@ -5,6 +5,7 @@
 ### Enhancements
 
 - Add the `ignore_keys` config to leave translation keys out of the audit, for every locale or only for the listed ones.
+- Add the `--display-format` option and the `display_format` config to print the missing translations as a `table`, a `list` or `json`, followed by a summary of the keys and files with missing translations.
 
 ## [v0.2.0](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.1.0...v0.2.0) - 2026-09-30
 
