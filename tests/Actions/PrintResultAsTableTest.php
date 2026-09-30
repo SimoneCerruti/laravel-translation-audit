@@ -10,7 +10,7 @@ function printResultAsTable(array $missing): string {
 
     app(PrintResultAsTable::class)->handle($missing, $output);
 
-    return $output->fetch();
+    return str_replace(PHP_EOL, "\n", $output->fetch());
 }
 
 it('prints the keys in a table with a section per file', function (): void {

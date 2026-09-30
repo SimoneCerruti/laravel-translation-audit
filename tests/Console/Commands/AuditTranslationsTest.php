@@ -470,7 +470,7 @@ describe('saving the result', function (): void {
             'random with length' => ['audit-{random:4}', '/^audit-[a-zA-Z0-9]{4}\.json$/'],
             'random without length' => ['audit-{random}', '/^audit-[a-zA-Z0-9]{8}\.json$/'],
             'many placeholders' => ['{now:Y}-{random:3}-{now:m}', '/^2026-[a-zA-Z0-9]{3}-09\.json$/'],
-            'unknown placeholder' => ['audit-{unknown:1}', '/^audit-\{unknown:1\}\.json$/'],
+            'unknown placeholder' => ['audit-{unknown}', '/^audit-\{unknown\}\.json$/'],
         ]);
     });
 

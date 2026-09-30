@@ -16,7 +16,7 @@ function printResultAsList(array $missing, int $columns = 80): string {
         putenv('COLUMNS');
     }
 
-    return $output->fetch();
+    return str_replace(PHP_EOL, "\n", $output->fetch());
 }
 
 it('prints the keys grouped by file with the missing locales aligned before each key', function (): void {
