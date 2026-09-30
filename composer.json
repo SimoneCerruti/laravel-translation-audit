@@ -5,7 +5,9 @@
   "keywords": [
     "laravel",
     "simonecerruti",
-    "laravel-translation-audit"
+    "laravel-translation-audit",
+    "dev",
+    "static analysis"
   ],
   "homepage": "https://github.com/simonecerruti/laravel-translation-audit",
   "license": "MIT",

@@ -16,10 +16,10 @@ Laravel Translation Audit scans your PHP files and Blade views for translation c
 
 ## Installation
 
-You can install the package via Composer:
+The package is a development tool, so install it as a dev dependency via Composer:
 
 ```bash
-composer require simonecerruti/laravel-translation-audit
+composer require --dev simonecerruti/laravel-translation-audit
 ```
 
 You may publish all of the package's resources at once:
