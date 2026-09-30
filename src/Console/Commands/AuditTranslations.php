@@ -85,6 +85,9 @@ class AuditTranslations extends Command {
     /** @var non-falsy-string|null */
     private ?string $save_path = null;
 
+    /** @var array<non-empty-string, list<non-empty-string>|null> Ignored keys mapped to their ignored locales, null for all locales. */
+    private array $ignore_keys = [];
+
     private CommandOptionHelper $options_helper;
 
     public function handle(): int {
@@ -92,14 +95,15 @@ class AuditTranslations extends Command {
             $this->options_helper = new CommandOptionHelper($this->input, $this);
 
             $this->scan_paths = $this->getScanPaths();
-            $this->ignore_paths = $this->getConfigArray('ignore_paths');
-            $this->ignore_links = $this->getConfigArray('ignore_links');
-            $this->ignore_locales = $this->getConfigArray('ignore_locales');
+            $this->ignore_paths = $this->getConfigStringList('ignore_paths');
+            $this->ignore_links = $this->getConfigStringList('ignore_links');
+            $this->ignore_locales = $this->getConfigStringList('ignore_locales');
             $this->supported_locales = $this->getSupportedLocales();
             $this->should_follow_links = $this->options_helper->booleanOrConfig('follow-links', 'translation-audit.always_follow_links', false);
             $this->should_save_result = $this->options_helper->booleanOrConfig('save', 'translation-audit.always_save', false);
             $this->save_format = $this->should_save_result ? $this->getSaveFormat() : null;
             $this->save_path = $this->should_save_result ? $this->getSavePath() : null;
+            $this->ignore_keys = $this->getIgnoreKeys();
 
             $this->warnForHeavyPaths();
         } catch (InvalidConfigException|InvalidArgumentException $e) {
@@ -179,6 +183,10 @@ class AuditTranslations extends Command {
         foreach ($this->translation_keys as $file_path => $keys) {
             foreach (array_unique($keys) as $key) {
                 foreach ($locales as $locale) {
+                    if ($this->isIgnoredKey($key, $locale)) {
+                        continue;
+                    }
+
                     if (! Lang::hasForLocale($key, $locale)) {
                         $missing[$file_path][$key][] = $locale;
                     }
@@ -327,11 +335,60 @@ class AuditTranslations extends Command {
     }
 
     /**
+     * @return array<non-empty-string, list<non-empty-string>|null>
+     *
+     * @throws InvalidConfigException
+     */
+    private function getIgnoreKeys(): array {
+        try {
+            $values = config()->array('translation-audit.ignore_keys');
+        } catch (InvalidArgumentException) {
+            throw new InvalidConfigException('The "ignore_keys" config must be an array.');
+        }
+
+        $ignore_keys = [];
+
+        foreach ($values as $key => $value) {
+            if (\is_int($key) && \is_string($value) && $value) {
+                $ignore_keys[$value] = null;
+
+                continue;
+            }
+
+            if (! \is_string($key) || ! $key || ! \is_array($value) || ! array_is_list($value)) {
+                throw new InvalidConfigException('The "ignore_keys" config must contain only keys, or keys mapped to a list of locales.');
+            }
+
+            foreach ($value as $locale) {
+                if (! \is_string($locale) || ! $locale) {
+                    throw new InvalidConfigException("The locales of the \"{$key}\" key in the \"ignore_keys\" config must be non-empty strings.");
+                }
+            }
+
+            if (! \array_key_exists($key, $ignore_keys)) {
+                $ignore_keys[$key] = $value;
+            }
+        }
+
+        return $ignore_keys;
+    }
+
+    private function isIgnoredKey(string $key, string $locale): bool {
+        if (! \array_key_exists($key, $this->ignore_keys)) {
+            return false;
+        }
+
+        $locales = $this->ignore_keys[$key];
+
+        return $locales === null || \in_array($locale, $locales, true);
+    }
+
+    /**
      * @return list<non-falsy-string>
      *
      * @throws InvalidConfigException
      */
-    private function getConfigArray(string $key): array {
+    private function getConfigStringList(string $key): array {
         try {
             $values = config()->array("translation-audit.{$key}");
         } catch (InvalidArgumentException) {
@@ -357,7 +414,7 @@ class AuditTranslations extends Command {
      * @throws InvalidConfigException
      */
     private function getScanPaths(): array {
-        $scan_paths = $this->getConfigArray('scan_paths');
+        $scan_paths = $this->getConfigStringList('scan_paths');
 
         throw_if($scan_paths === [], InvalidConfigException::class, 'Specify which paths to scan in the "scan_paths" config.');
 
@@ -370,7 +427,7 @@ class AuditTranslations extends Command {
      * @throws InvalidConfigException
      */
     private function getSupportedLocales(): array {
-        $supported_locales_config = $this->getConfigArray('supported_locales');
+        $supported_locales_config = $this->getConfigStringList('supported_locales');
 
         throw_if($supported_locales_config === [], InvalidConfigException::class, 'The "supported_locales" config must be an array listing the app supported locales. Use "auto" as the first value of the array to autodetect locales from the "lang" folder');
 

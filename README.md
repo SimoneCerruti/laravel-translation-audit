@@ -52,6 +52,17 @@ php artisan translation:audit
 
 The command exits with a non-zero status code when it finds missing translations, so it can be used to fail a CI pipeline.
 
+### Ignoring Keys
+
+List the translation keys to leave out of the audit in the `ignore_keys` config. A plain key is ignored for every locale, while a key mapped to a list of locales is ignored only for those locales:
+
+```php
+'ignore_keys' => [
+    'Hello',          // ignored for every locale
+    'Hi' => ['en'],   // ignored only for English
+],
+```
+
 ### Following Symbolic Links
 
 Symbolic links are not followed by default. Pass `--follow-links` to scan the files behind them as well:

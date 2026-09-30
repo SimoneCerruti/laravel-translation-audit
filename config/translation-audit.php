@@ -38,4 +38,7 @@ return [
 
     // Name of the saved file, without the extension. {now:<format>} inserts the current date in the given PHP date format, {random:<length>} inserts random alphanumeric characters. The --save-name option overrides it.
     'save_name' => 'translation-audit-{now:d_M_Y_H_i}-{random:8}',
+
+    // Translation keys to leave out of the audit. A plain key is ignored for every locale, a key mapped to a list of locales only for those locales, e.g. ['Hello', 'Hi' => ['en']].
+    'ignore_keys' => [],
 ];

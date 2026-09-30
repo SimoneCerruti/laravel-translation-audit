@@ -152,6 +152,65 @@ describe('supported locales', function (): void {
     });
 });
 
+describe('ignored keys', function (): void {
+    beforeEach(function (): void {
+        putFile('app/Greeter.php', "<?php __('Hello'); __('Hi'); __('Bye');");
+    });
+
+    it('ignores the keys for every locale or only for the listed locales', function (): void {
+        config(['translation-audit.ignore_keys' => ['Hello', 'Hi' => ['en']]]);
+
+        artisan(AuditTranslations::class)
+            ->expectsTable(['File', 'Key', 'Missing locales'], [
+                ['app/Greeter.php', 'Hi', 'IT'],
+                ['', 'Bye', 'EN, IT'],
+            ])
+            ->assertFailed();
+    });
+
+    it('ignores a key for every locale when it is also listed with locales', function (): void {
+        config(['translation-audit.ignore_keys' => ['Hi' => ['en'], 'Hello', 'Bye', 'Hi']]);
+
+        artisan(AuditTranslations::class)
+            ->expectsOutput('No missing translations found.')
+            ->assertSuccessful();
+    });
+
+    it('fails when the ignore_keys config is not an array', function (): void {
+        config(['translation-audit.ignore_keys' => 'Hello']);
+
+        artisan(AuditTranslations::class)
+            ->expectsOutputToContain('The "ignore_keys" config must be an array.')
+            ->assertExitCode(Command::INVALID);
+    });
+
+    it('fails when the ignore_keys config contains an invalid entry', function (mixed $value): void {
+        config(['translation-audit.ignore_keys' => $value]);
+
+        artisan(AuditTranslations::class)
+            ->expectsOutputToContain('The "ignore_keys" config must contain only keys, or keys mapped to a list of locales.')
+            ->assertExitCode(Command::INVALID);
+    })->with([
+        'empty key' => [['']],
+        'integer key' => [[1]],
+        'locales without key' => [[['en']]],
+        'locale string' => [['Hi' => 'en']],
+        'locales map' => [['Hi' => ['a' => 'en']]],
+    ]);
+
+    it('fails when a key in the ignore_keys config has invalid locales', function (mixed $locale): void {
+        config(['translation-audit.ignore_keys' => ['Hi' => ['en', $locale]]]);
+
+        artisan(AuditTranslations::class)
+            ->expectsOutputToContain('The locales of the "Hi" key in the "ignore_keys" config must be non-empty strings.')
+            ->assertExitCode(Command::INVALID);
+    })->with([
+        'empty string' => '',
+        'integer' => 1,
+        'null' => null,
+    ]);
+});
+
 describe('file selection', function (): void {
     it('scans only the files matching the scan paths', function (): void {
         putFile('resources/views/welcome.blade.php', "{{ __('Welcome') }}");
