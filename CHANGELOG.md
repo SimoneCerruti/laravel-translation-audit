@@ -1,6 +1,15 @@
 # Release Notes
 
-## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.3.0...HEAD)
+## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.3.1...HEAD)
+
+## [v0.3.1](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.3.0...v0.3.1) - 2026-09-30
+
+### Bug Fixes
+
+- Replace the colons in the date printed by the `{now}` placeholder of `--save-name` and `save_name` with dashes, so formats like `{now:H:i}` or `{now:c}` produce valid file names on Windows. Slashes and backslashes are now replaced after formatting, so escaped characters in the format keep working.
+- Save the JSON result without escaping slashes and Unicode characters.
+
+**Full Changelog**: https://github.com/SimoneCerruti/laravel-translation-audit/compare/v0.3.0...v0.3.1
 
 ## [v0.3.0](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.2.0...v0.3.0) - 2026-09-30
 
