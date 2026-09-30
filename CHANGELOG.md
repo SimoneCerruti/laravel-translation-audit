@@ -1,6 +1,20 @@
 # Release Notes
 
-## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.2.0...HEAD)
+## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.3.0...HEAD)
+
+## [v0.3.0](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.2.0...v0.3.0) - 2026-09-30
+
+### Enhancements
+
+- Add the `ignore_keys` config to leave translation keys out of the audit, for every locale or only for the listed ones.
+- Add the `--display-format` option and the `display_format` config to print the missing translations as a `table`, a `list` or `json`, followed by a summary of the keys and files with missing translations.
+- Print the missing translations as a list grouped by file by default instead of a table, with the locales aligned before each key and long keys wrapped to the terminal width.
+
+### Documentation
+
+- Document ignoring keys, choosing the display format and the default list output.
+
+**Full Changelog**: https://github.com/SimoneCerruti/laravel-translation-audit/compare/v0.2.0...v0.3.0
 
 ## [v0.2.0](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.1.0...v0.2.0) - 2026-09-30
 
