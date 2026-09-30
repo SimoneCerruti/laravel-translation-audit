@@ -27,13 +27,17 @@ use Symfony\Component\Finder\Finder;
 use Symfony\Component\Finder\Glob;
 use Symfony\Component\Finder\SplFileInfo;
 use TranslationAudit\Exceptions\InvalidConfigException;
+use TranslationAudit\Support\CommandOptionHelper;
 
 use function Safe\file_get_contents;
 use function Safe\preg_match;
 
 class AuditTranslations extends Command {
     /** @var string */
-    protected $signature = 'translation:audit {--follow-links : Follow symbolic links while looking for the files to scan}';
+    protected $signature = <<<'TXT'
+        translation:audit
+            {--follow-links= : Follow symbolic links while looking for the files to scan. Accept true or false, if no value is specified it defaults to true. Overrides the always_follow_links config}
+    TXT;
 
     /** @var string */
     protected $description = 'Audit your app for missing or unused translations.';
@@ -62,17 +66,23 @@ class AuditTranslations extends Command {
     /** @var array<string, list<non-falsy-string>> */
     private array $translation_keys = [];
 
+    private bool $should_follow_links = false;
+
+    private CommandOptionHelper $options_helper;
+
     public function handle(): int {
         try {
+            $this->options_helper = new CommandOptionHelper($this->input, $this);
+
             $this->scan_paths = $this->getScanPaths();
-
-            $this->warnForHeavyPaths();
-
             $this->ignore_paths = $this->getConfigArray('ignore_paths');
             $this->ignore_links = $this->getConfigArray('ignore_links');
             $this->ignore_locales = $this->getConfigArray('ignore_locales');
             $this->supported_locales = $this->getSupportedLocales();
-        } catch (InvalidConfigException $e) {
+            $this->should_follow_links = $this->options_helper->booleanOrConfig('follow-links', 'translation-audit.always_follow_links', false);
+
+            $this->warnForHeavyPaths();
+        } catch (InvalidConfigException|InvalidArgumentException $e) {
             $this->error($e->getMessage());
 
             return self::INVALID;
@@ -187,7 +197,7 @@ class AuditTranslations extends Command {
     private function getFilesToAudit(): Collection {
         $finder = Finder::create()->files()->in(base_path());
 
-        if ($this->option('follow-links') === true) {
+        if ($this->should_follow_links) {
             $finder->followLinks()->filter($this->isNotIgnoredLink(...), prune: true);
         }
 

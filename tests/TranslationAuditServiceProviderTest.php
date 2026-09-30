@@ -12,7 +12,8 @@ it('merges the package config', function (): void {
         ->and(config('translation-audit.ignore_paths'))->toBe([])
         ->and(config('translation-audit.ignore_links'))->toBe(['vendor', 'node_modules'])
         ->and(config('translation-audit.ignore_locales'))->toBe([])
-        ->and(config('translation-audit.supported_locales'))->toBe(['auto']);
+        ->and(config('translation-audit.supported_locales'))->toBe(['auto'])
+        ->and(config('translation-audit.always_follow_links'))->toBeFalse();
 });
 
 it('registers the artisan command', function (): void {

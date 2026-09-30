@@ -12,7 +12,7 @@ return [
     // Glob patterns, relative to the project root, of the files to skip even when they match a scan path.
     'ignore_paths' => [],
 
-    // Glob patterns, relative to the project root, of the symbolic links not to follow when the audit runs with --follow-links.
+    // Glob patterns, relative to the project root, of the symbolic links never to follow, even when the audit follows symbolic links.
     'ignore_links' => [
         'vendor',
         'node_modules',
@@ -23,4 +23,7 @@ return [
 
     // Locales the app supports. Set ['auto'] to detect them from the json files and directories in the "lang" folder.
     'supported_locales' => ['auto'],
+
+    // Whether to follow symbolic links while looking for the files to scan. The --follow-links option overrides it.
+    'always_follow_links' => false,
 ];

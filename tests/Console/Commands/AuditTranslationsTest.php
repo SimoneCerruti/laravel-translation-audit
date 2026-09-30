@@ -235,40 +235,89 @@ describe('symbolic links', function (): void {
             ->assertSuccessful();
     });
 
-    it('follows symbolic links with the follow links option', function (): void {
-        artisan(AuditTranslations::class, ['--follow-links' => true])
-            ->expectsTable(['File', 'Key', 'Missing locales'], [
-                ['resources/views/welcome.blade.php', 'Welcome', 'EN, IT'],
-            ])
-            ->assertFailed();
+    describe('--follow-links option', function (): void {
+        it('follows symbolic links with the follow links option', function (): void {
+            artisan(AuditTranslations::class, ['--follow-links' => true])
+                ->expectsTable(['File', 'Key', 'Missing locales'], [
+                    ['resources/views/welcome.blade.php', 'Welcome', 'EN, IT'],
+                ])
+                ->assertFailed();
+        });
+
+        it('follows symbolic links with the follow links option without a value', function (): void {
+            artisan(AuditTranslations::class, ['--follow-links' => null])
+                ->expectsTable(['File', 'Key', 'Missing locales'], [
+                    ['resources/views/welcome.blade.php', 'Welcome', 'EN, IT'],
+                ])
+                ->assertFailed();
+        });
+
+        it('follows symbolic links with the follow links option set to true', function (): void {
+            artisan(AuditTranslations::class, ['--follow-links' => 'true'])
+                ->expectsTable(['File', 'Key', 'Missing locales'], [
+                    ['resources/views/welcome.blade.php', 'Welcome', 'EN, IT'],
+                ])
+                ->assertFailed();
+        });
+
+        it('does not follow symbolic links when the option overrides the config', function (mixed $value): void {
+            config(['translation-audit.always_follow_links' => true]);
+
+            artisan(AuditTranslations::class, ['--follow-links' => $value])
+                ->expectsOutput('No missing translations found.')
+                ->assertSuccessful();
+        })->with([
+            'false string' => 'false',
+            'false boolean' => false,
+        ]);
+
+        it('fails when the follow links option is not a boolean', function (): void {
+            artisan(AuditTranslations::class, ['--follow-links' => 'yes'])
+                ->expectsOutputToContain('The --follow-links option accepts only true or false.')
+                ->assertExitCode(Command::INVALID);
+        });
     });
 
-    it('does not follow the symbolic links matching the ignore links', function (): void {
-        config(['translation-audit.ignore_links' => ['app/Legacy*']]);
-        putFile('shared/legacy/Old.php', "<?php __('Old');");
-        putFile('shared/modern/New.php', "<?php __('New');");
-        putLink('shared/legacy', 'app/LegacyModule');
-        putLink('shared/modern', 'app/Module');
+    describe('always_follow_links config', function (): void {
+        it('follows symbolic links when the config always follows them', function (): void {
+            config(['translation-audit.always_follow_links' => true]);
 
-        artisan(AuditTranslations::class, ['--follow-links' => true])
-            ->expectsTable(['File', 'Key', 'Missing locales'], [
-                ['app/Module/New.php', 'New', 'EN, IT'],
-                new TableSeparator,
-                ['resources/views/welcome.blade.php', 'Welcome', 'EN, IT'],
-            ])
-            ->assertFailed();
+            artisan(AuditTranslations::class)
+                ->expectsTable(['File', 'Key', 'Missing locales'], [
+                    ['resources/views/welcome.blade.php', 'Welcome', 'EN, IT'],
+                ])
+                ->assertFailed();
+        });
     });
 
-    it('does not follow the symbolic links matching the ignore links by default', function (): void {
-        putFile('shared/vendor/acme/Package.php', "<?php __('Package');");
-        putLink('shared/vendor', 'vendor');
-        config(['translation-audit.scan_paths' => ['vendor/**/*.php', 'resources/views/**/*blade.php']]);
+    describe('ignore_links config', function (): void {
+        it('does not follow the symbolic links matching the ignore links', function (): void {
+            config(['translation-audit.ignore_links' => ['app/Legacy*']]);
+            putFile('shared/legacy/Old.php', "<?php __('Old');");
+            putFile('shared/modern/New.php', "<?php __('New');");
+            putLink('shared/legacy', 'app/LegacyModule');
+            putLink('shared/modern', 'app/Module');
 
-        artisan(AuditTranslations::class, ['--follow-links' => true])
-            ->expectsTable(['File', 'Key', 'Missing locales'], [
-                ['resources/views/welcome.blade.php', 'Welcome', 'EN, IT'],
-            ])
-            ->assertFailed();
+            artisan(AuditTranslations::class, ['--follow-links' => true])
+                ->expectsTable(['File', 'Key', 'Missing locales'], [
+                    ['app/Module/New.php', 'New', 'EN, IT'],
+                    new TableSeparator,
+                    ['resources/views/welcome.blade.php', 'Welcome', 'EN, IT'],
+                ])
+                ->assertFailed();
+        });
+
+        it('does not follow the symbolic links matching the ignore links by default', function (): void {
+            putFile('shared/vendor/acme/Package.php', "<?php __('Package');");
+            putLink('shared/vendor', 'vendor');
+            config(['translation-audit.scan_paths' => ['vendor/**/*.php', 'resources/views/**/*blade.php']]);
+
+            artisan(AuditTranslations::class, ['--follow-links' => true])
+                ->expectsTable(['File', 'Key', 'Missing locales'], [
+                    ['resources/views/welcome.blade.php', 'Welcome', 'EN, IT'],
+                ])
+                ->assertFailed();
+        });
     });
 });
 
