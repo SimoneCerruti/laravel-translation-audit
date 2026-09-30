@@ -466,7 +466,9 @@ describe('saving the result', function (): void {
         })->with([
             'now with format' => ['audit-{now:Y-m-d_H-i}', '/^audit-2026-09-30_18-30\.json$/'],
             'now without format' => ['audit-{now}', '/^audit-2026-09-30\.json$/'],
-            'now with slashes in the format' => ['audit-{now:Y/m\d}', '/^audit-2026-09-30\.json$/'],
+            'now with slashes in the format' => ['audit-{now:Y/m/d}', '/^audit-2026-09-30\.json$/'],
+            'now with colons in the format' => ['audit-{now:H:i}', '/^audit-18-30\.json$/'],
+            'now with colons in the formatted date' => ['audit-{now:c}', '/^audit-2026-09-30T18-30-00\+00-00\.json$/'],
             'random with length' => ['audit-{random:4}', '/^audit-[a-zA-Z0-9]{4}\.json$/'],
             'random without length' => ['audit-{random}', '/^audit-[a-zA-Z0-9]{8}\.json$/'],
             'many placeholders' => ['{now:Y}-{random:3}-{now:m}', '/^2026-[a-zA-Z0-9]{3}-09\.json$/'],

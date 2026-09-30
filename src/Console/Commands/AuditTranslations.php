@@ -490,7 +490,7 @@ class AuditTranslations extends Command {
      */
     private function saveResult(array $missing): void {
         $content = match ($this->save_format) {
-            'json' => collect($missing)->toJson(JSON_PRETTY_PRINT),
+            'json' => json_encode($missing, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
             default => throw new InvalidConfigException("Invalid save format '".($this->save_format ?? 'NULL')."'. Supported formats: ".implode(', ', self::SUPPORTED_SAVE_FORMATS)),
         };
 
@@ -526,7 +526,7 @@ class AuditTranslations extends Command {
 
     private function resolveSaveName(string $name): string {
         return Str::replaceMatches('/\{(\w+)(?::([^}]*))?\}/', fn (array $m): string => match ($m[1]) {
-            'now' => Carbon::now()->format(str_replace(['\\', '/'], '-', $m[2] ?? 'Y-m-d')),
+            'now' => str_replace(['\\', '/', ':'], '-', Carbon::now()->format($m[2] ?? 'Y-m-d')),
             'random' => Str::random((int) (($n = $m[2] ?? 8) < 0 ? 8 : $n)),
             default => $m[0],
         }, $name);
