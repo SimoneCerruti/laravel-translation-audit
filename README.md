@@ -64,6 +64,44 @@ To always follow them, set `always_follow_links` to `true` in the config file. T
 
 The links matching the `ignore_links` glob patterns in the config file, `vendor` and `node_modules` by default, are never followed.
 
+### Saving the Audit Result
+
+Pass `--save` to write the audit result to a file, or set `always_save` to `true` in the config file to save it on every run:
+
+```bash
+php artisan translation:audit --save
+```
+
+The result is saved even when no translation is missing, and the command prints the path of the saved file. By default it lands in `storage/app/private/translation-audits`, in a file named like `translation-audit-30_Sep_2026_18_30-aB3dE9fG.json`.
+
+The saved JSON lists, for each scanned file, the keys with missing translations and the locales they are missing in. It is an empty array when nothing is missing:
+
+```json
+{
+    "app/Http/Controllers/HomeController.php": {
+        "messages.welcome": ["it", "fr"]
+    }
+}
+```
+
+Each of these options overrides the matching config value for a single run:
+
+| Option | Config | Default | Description |
+| --- | --- | --- | --- |
+| `--save` | `always_save` | `false` | Whether to save the audit result. Accepts `true` or `false`, and means `true` when passed without a value. |
+| `--save-format` | `save_format` | `json` | The format of the saved file. Supported formats: `json`. |
+| `--save-path` | `save_path` | `storage_path('app/private/translation-audits')` | The absolute path of the directory to save the file in. The directory is created if missing. |
+| `--save-name` | `save_name` | `translation-audit-{now:d_M_Y_H_i}-{random:8}` | The file name, without the extension. |
+
+The file name supports these placeholders:
+
+- `{now:<format>}` inserts the current date in the given [PHP date format](https://www.php.net/manual/en/datetime.format.php). Slashes in the format are replaced with dashes.
+- `{random:<length>}` inserts the given number of random alphanumeric characters.
+
+```bash
+php artisan translation:audit --save --save-path=/tmp/audits --save-name="audit-{now:Y-m-d}"
+```
+
 ## Changelog
 
 Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed recently.

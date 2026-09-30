@@ -6,9 +6,12 @@ namespace TranslationAudit\Console\Commands;
 
 use Exception;
 use Illuminate\Console\Command;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Lang;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\FuncCall;
@@ -37,10 +40,16 @@ class AuditTranslations extends Command {
     protected $signature = <<<'TXT'
         translation:audit
             {--follow-links= : Follow symbolic links while looking for the files to scan. Accept true or false, if no value is specified it defaults to true. Overrides the always_follow_links config}
+            {--save= : Persist the audit result. Accept true or false, if no value is specified it defaults to true. Overrides the always_save config}
+            {--save-format= : The format in which to save the audit result. Supported formats: json. Overrides the save_format config}
+            {--save-path= : The path in which to save the audit result. Overrides the save_path config}
+            {--save-name= : The name of the file to save the audit result to, without the extension. It supports the following patterns, which have to be wrapped in curly braces: - now:<format>: inserts the current date in the specified format; - random:<length>: inserts random alphanumeric characters (a-zA-Z0-9). Overrides the save_name config}
     TXT;
 
     /** @var string */
     protected $description = 'Audit your app for missing or unused translations.';
+
+    private const array SUPPORTED_SAVE_FORMATS = ['json'];
 
     private const array TRANSLATION_FUNCTIONS = ['__', 'trans', 'trans_choice'];
 
@@ -68,6 +77,14 @@ class AuditTranslations extends Command {
 
     private bool $should_follow_links = false;
 
+    private bool $should_save_result = false;
+
+    /** @var value-of<self::SUPPORTED_SAVE_FORMATS>|null */
+    private ?string $save_format = null;
+
+    /** @var non-falsy-string|null */
+    private ?string $save_path = null;
+
     private CommandOptionHelper $options_helper;
 
     public function handle(): int {
@@ -80,6 +97,9 @@ class AuditTranslations extends Command {
             $this->ignore_locales = $this->getConfigArray('ignore_locales');
             $this->supported_locales = $this->getSupportedLocales();
             $this->should_follow_links = $this->options_helper->booleanOrConfig('follow-links', 'translation-audit.always_follow_links', false);
+            $this->should_save_result = $this->options_helper->booleanOrConfig('save', 'translation-audit.always_save', false);
+            $this->save_format = $this->should_save_result ? $this->getSaveFormat() : null;
+            $this->save_path = $this->should_save_result ? $this->getSavePath() : null;
 
             $this->warnForHeavyPaths();
         } catch (InvalidConfigException|InvalidArgumentException $e) {
@@ -101,6 +121,10 @@ class AuditTranslations extends Command {
         $this->scanFiles($this->getFilesToAudit());
 
         $missing = $this->detectMissingTranslations();
+
+        if ($this->should_save_result) {
+            $this->saveResult($missing);
+        }
 
         if ($missing === []) {
             $this->info('No missing translations found.');
@@ -390,5 +414,52 @@ class AuditTranslations extends Command {
             ->map(base_path(...))
             ->intersect($heavy_paths)
             ->each(fn (string $path) => $this->warn("The '{$path}' is set for scan. This may cause heavy resource usage and significantly slow down the audit."));
+    }
+
+    /**
+     * @param  array<string, array<non-falsy-string, non-empty-list<string>>>  $missing
+     */
+    private function saveResult(array $missing): void {
+        $content = match ($this->save_format) {
+            'json' => collect($missing)->toJson(JSON_PRETTY_PRINT),
+            default => throw new InvalidConfigException("Invalid save format '".($this->save_format ?? 'NULL')."'. Supported formats: ".implode(', ', self::SUPPORTED_SAVE_FORMATS)),
+        };
+
+        File::ensureDirectoryExists(\dirname($this->save_path));
+        File::put($this->save_path, $content);
+
+        $this->info("Audit result saved: {$this->save_path}");
+    }
+
+    /**
+     * @return value-of<self::SUPPORTED_SAVE_FORMATS>
+     *
+     * @throws InvalidConfigException
+     */
+    private function getSaveFormat(): string {
+        $format = $this->options_helper->nonEmptyStringOrConfig('save-format', 'translation-audit.save_format');
+
+        throw_unless(\in_array($format, self::SUPPORTED_SAVE_FORMATS), InvalidConfigException::class, "Invalid save format '{$format}'. Supported formats: ".implode(', ', self::SUPPORTED_SAVE_FORMATS));
+
+        return $format;
+    }
+
+    /**
+     * @return non-falsy-string
+     */
+    private function getSavePath(): string {
+        $path = rtrim($this->options_helper->nonEmptyStringOrConfig('save-path', 'translation-audit.save_path'), '/\\');
+
+        $name = $this->resolveSaveName($this->options_helper->nonEmptyStringOrConfig('save-name', 'translation-audit.save_name'));
+
+        return $path.DIRECTORY_SEPARATOR."{$name}.{$this->save_format}";
+    }
+
+    private function resolveSaveName(string $name): string {
+        return Str::replaceMatches('/\{(\w+)(?::([^}]*))?\}/', fn (array $m): string => match ($m[1]) {
+            'now' => Carbon::now()->format(str_replace(['\\', '/'], '-', $m[2] ?? 'Y-m-d')),
+            'random' => Str::random((int) (($n = $m[2] ?? 8) < 0 ? 8 : $n)),
+            default => $m[0],
+        }, $name);
     }
 }

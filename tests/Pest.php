@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\File;
+use Symfony\Component\Finder\SplFileInfo;
 use TranslationAudit\Tests\TestCase;
 
 pest()->extend(TestCase::class)->in(__DIR__);
@@ -47,4 +48,31 @@ function putLink(string $relative_target, string $relative_link): void {
 
     File::ensureDirectoryExists(dirname($link));
     symlink(base_path($relative_target), $link);
+}
+
+/**
+ * List the names of the files in a directory relative to the application base path, or none when it is missing.
+ *
+ * @return list<string>
+ */
+function getAuditSavedFiles(string $relative_directory = 'audits'): array {
+    $directory = base_path($relative_directory);
+
+    return File::isDirectory($directory)
+        ? array_map(fn (SplFileInfo $file): string => $file->getFilename(), File::files($directory))
+        : [];
+}
+
+/** Read the contents of the first audit result saved in the `audits` directory. */
+function getFirstAuditSaveFile(): string {
+    return File::get(base_path('audits/'.getAuditSavedFiles()[0]));
+}
+
+/** Decode the first audit result saved in the `audits` directory, asserting it is valid JSON. */
+function getFirstAuditSaveFileJsonContent(): mixed {
+    $contents = getFirstAuditSaveFile();
+
+    expect($contents)->toBeJson();
+
+    return json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
 }

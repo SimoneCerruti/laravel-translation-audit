@@ -2,11 +2,13 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Carbon;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\TableSeparator;
 use TranslationAudit\Console\Commands\AuditTranslations;
 
 use function Pest\Laravel\artisan;
+use function Pest\Laravel\travelTo;
 
 beforeEach(function (): void {
     config(['translation-audit.supported_locales' => ['en', 'it']]);
@@ -318,6 +320,179 @@ describe('symbolic links', function (): void {
                 ])
                 ->assertFailed();
         });
+    });
+});
+
+describe('saving the result', function (): void {
+    beforeEach(function (): void {
+        config(['translation-audit.save_path' => base_path('audits')]);
+        travelTo(Carbon::create(2026, 9, 30, 18, 30));
+    });
+
+    it('does not save the result by default', function (): void {
+        putFile('app/Example.php', "<?php __('Hello');");
+
+        artisan(AuditTranslations::class)
+            ->doesntExpectOutputToContain('Audit result saved')
+            ->assertFailed();
+
+        expect(getAuditSavedFiles())->toBeEmpty();
+    });
+
+    describe('--save option', function (): void {
+        it('saves the missing translations to a json file with the save option', function (): void {
+            putJsonTranslations('it', ['Hello' => 'Ciao']);
+            putFile('app/Example.php', "<?php __('Hello'); __('messages.welcome');");
+
+            artisan(AuditTranslations::class, ['--save' => null])
+                ->expectsOutputToContain('Audit result saved: '.base_path('audits').DIRECTORY_SEPARATOR.'translation-audit-30_Sep_2026_18_30-')
+                ->assertFailed();
+
+            $files = getAuditSavedFiles();
+
+            expect($files)->toHaveCount(1)
+                ->and($files[0])->toMatch('/^translation-audit-30_Sep_2026_18_30-[a-zA-Z0-9]{8}\.json$/')
+                ->and(getFirstAuditSaveFileJsonContent())->toBe([
+                    'app/Example.php' => [
+                        'Hello' => ['en'],
+                        'messages.welcome' => ['en', 'it'],
+                    ],
+                ]);
+        });
+
+        it('saves an empty result when no translation is missing', function (): void {
+            artisan(AuditTranslations::class, ['--save' => true])
+                ->expectsOutputToContain('Audit result saved')
+                ->expectsOutput('No missing translations found.')
+                ->assertSuccessful();
+
+            expect(getAuditSavedFiles())->toHaveCount(1)
+                ->and(getFirstAuditSaveFileJsonContent())->toBe([]);
+        });
+
+        it('does not save the result when the option overrides the config', function (mixed $value): void {
+            config(['translation-audit.always_save' => true]);
+
+            artisan(AuditTranslations::class, ['--save' => $value])
+                ->doesntExpectOutputToContain('Audit result saved')
+                ->assertSuccessful();
+
+            expect(getAuditSavedFiles())->toBeEmpty();
+        })->with([
+            'false string' => 'false',
+            'false boolean' => false,
+        ]);
+
+        it('fails when the save option is not a boolean', function (): void {
+            artisan(AuditTranslations::class, ['--save' => '1'])
+                ->expectsOutputToContain('The --save option accepts only true or false.')
+                ->assertExitCode(Command::INVALID);
+
+            expect(getAuditSavedFiles())->toBeEmpty();
+        });
+    });
+
+    describe('always_save config', function (): void {
+        it('saves the result when the config always saves it', function (): void {
+            config(['translation-audit.always_save' => true]);
+
+            artisan(AuditTranslations::class)
+                ->expectsOutputToContain('Audit result saved')
+                ->assertSuccessful();
+
+            expect(getAuditSavedFiles())->toHaveCount(1);
+        });
+    });
+
+    describe('--save-path option', function (): void {
+        it('saves the result in the directory given by the save path option, creating it if missing', function (): void {
+            artisan(AuditTranslations::class, ['--save' => true, '--save-path' => base_path('reports/nested/')])
+                ->assertSuccessful();
+
+            expect(getAuditSavedFiles())->toBeEmpty()
+                ->and(getAuditSavedFiles('reports/nested'))->toHaveCount(1);
+        });
+    });
+
+    describe('--save-name option and save_name config', function (): void {
+        it('saves the result with the name given by the save name option', function (): void {
+            artisan(AuditTranslations::class, ['--save' => true, '--save-name' => 'audit'])
+                ->expectsOutputToContain('Audit result saved: '.base_path('audits').DIRECTORY_SEPARATOR.'audit.json')
+                ->assertSuccessful();
+
+            expect(getAuditSavedFiles())->toBe(['audit.json']);
+        });
+
+        it('saves the result with the name given by the config', function (): void {
+            config(['translation-audit.save_name' => 'nightly']);
+
+            artisan(AuditTranslations::class, ['--save' => true])->assertSuccessful();
+
+            expect(getAuditSavedFiles())->toBe(['nightly.json']);
+        });
+
+        it('resolves the placeholders in the save name', function (string $name, string $pattern): void {
+            artisan(AuditTranslations::class, ['--save' => true, '--save-name' => $name])->assertSuccessful();
+
+            expect(getAuditSavedFiles())->toHaveCount(1)
+                ->and(getAuditSavedFiles()[0])->toMatch($pattern);
+        })->with([
+            'now with format' => ['audit-{now:Y-m-d_H-i}', '/^audit-2026-09-30_18-30\.json$/'],
+            'now without format' => ['audit-{now}', '/^audit-2026-09-30\.json$/'],
+            'now with slashes in the format' => ['audit-{now:Y/m\d}', '/^audit-2026-09-30\.json$/'],
+            'random with length' => ['audit-{random:4}', '/^audit-[a-zA-Z0-9]{4}\.json$/'],
+            'random without length' => ['audit-{random}', '/^audit-[a-zA-Z0-9]{8}\.json$/'],
+            'many placeholders' => ['{now:Y}-{random:3}-{now:m}', '/^2026-[a-zA-Z0-9]{3}-09\.json$/'],
+            'unknown placeholder' => ['audit-{unknown:1}', '/^audit-\{unknown:1\}\.json$/'],
+        ]);
+    });
+
+    describe('--save-format option and save_format config', function (): void {
+        it('saves the result in the format given by the config', function (): void {
+            config(['translation-audit.save_format' => 'json', 'translation-audit.save_name' => 'audit']);
+
+            artisan(AuditTranslations::class, ['--save' => true])->assertSuccessful();
+
+            expect(getAuditSavedFiles())->toBe(['audit.json']);
+        });
+
+        it('fails when the save format is not supported', function (Closure $configure, array $options): void {
+            $configure();
+
+            artisan(AuditTranslations::class, ['--save' => true, ...$options])
+                ->expectsOutputToContain("Invalid save format 'unsupported_format'. Supported formats: json")
+                ->assertExitCode(Command::INVALID);
+
+            expect(getAuditSavedFiles())->toBeEmpty();
+        })->with([
+            'option' => [fn (): null => null, ['--save-format' => 'unsupported_format']],
+            'config' => [fn () => config(['translation-audit.save_format' => 'unsupported_format']), []],
+        ]);
+    });
+
+    describe('save options validation', function (): void {
+        it('does not validate the save options when the result is not saved', function (): void {
+            artisan(AuditTranslations::class, ['--save-format' => 'unsupported_format', '--save-name' => ''])
+                ->expectsOutput('No missing translations found.')
+                ->assertSuccessful();
+        });
+
+        it('fails when a save option is empty', function (string $option): void {
+            artisan(AuditTranslations::class, ['--save' => true, "--{$option}" => ''])
+                ->expectsOutputToContain("The --{$option} option only accepts non-empty strings.")
+                ->assertExitCode(Command::INVALID);
+
+            expect(getAuditSavedFiles())->toBeEmpty();
+        })->with(['save-format', 'save-path', 'save-name']);
+
+        it('fails when a save config is not a string', function (string $key): void {
+            config(["translation-audit.{$key}" => ['invalid']]);
+
+            artisan(AuditTranslations::class, ['--save' => true])
+                ->assertExitCode(Command::INVALID);
+
+            expect(getAuditSavedFiles())->toBeEmpty();
+        })->with(['save_format', 'save_path', 'save_name']);
     });
 });
 

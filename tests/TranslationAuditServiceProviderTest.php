@@ -13,7 +13,11 @@ it('merges the package config', function (): void {
         ->and(config('translation-audit.ignore_links'))->toBe(['vendor', 'node_modules'])
         ->and(config('translation-audit.ignore_locales'))->toBe([])
         ->and(config('translation-audit.supported_locales'))->toBe(['auto'])
-        ->and(config('translation-audit.always_follow_links'))->toBeFalse();
+        ->and(config('translation-audit.always_follow_links'))->toBeFalse()
+        ->and(config('translation-audit.always_save'))->toBeFalse()
+        ->and(config('translation-audit.save_format'))->toBe('json')
+        ->and(str_replace('\\', '/', config('translation-audit.save_path')))->toEndWith('/storage/app/private/translation-audits')
+        ->and(config('translation-audit.save_name'))->toBe('translation-audit-{now:d_M_Y_H_i}-{random:8}');
 });
 
 it('registers the artisan command', function (): void {

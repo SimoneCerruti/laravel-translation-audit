@@ -26,4 +26,16 @@ return [
 
     // Whether to follow symbolic links while looking for the files to scan. The --follow-links option overrides it.
     'always_follow_links' => false,
+
+    // Whether to save the audit result to a file on every run, even when no translation is missing. The --save option overrides it.
+    'always_save' => false,
+
+    // Format of the saved audit result. Supported formats: json. The --save-format option overrides it.
+    'save_format' => 'json',
+
+    // Absolute path of the directory where the audit result is saved, created if missing. The --save-path option overrides it.
+    'save_path' => storage_path('app/private/translation-audits'),
+
+    // Name of the saved file, without the extension. {now:<format>} inserts the current date in the given PHP date format, {random:<length>} inserts random alphanumeric characters. The --save-name option overrides it.
+    'save_name' => 'translation-audit-{now:d_M_Y_H_i}-{random:8}',
 ];
