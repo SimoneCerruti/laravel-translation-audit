@@ -35,6 +35,11 @@ use TranslationAudit\Support\CommandOptionHelper;
 use function Safe\file_get_contents;
 use function Safe\preg_match;
 
+/**
+ * The missing locales of each translation key, grouped by the path of the file using the key.
+ *
+ * @phpstan-type MissingTranslations array<string, non-empty-array<non-falsy-string, non-empty-list<string>>>
+ */
 class AuditTranslations extends Command {
     /** @var string */
     protected $signature = <<<'TXT'
@@ -175,7 +180,7 @@ class AuditTranslations extends Command {
         $this->newLine(2);
     }
 
-    /** @return array<string, array<non-falsy-string, non-empty-list<string>>> */
+    /** @return MissingTranslations */
     private function detectMissingTranslations(): array {
         $missing = [];
         $locales = array_diff($this->supported_locales, $this->ignore_locales);
@@ -198,7 +203,7 @@ class AuditTranslations extends Command {
     }
 
     /**
-     * @param  non-empty-array<string, array<non-falsy-string, non-empty-list<string>>>  $missing
+     * @param  MissingTranslations&non-empty-array  $missing
      * @return list<array{string, non-falsy-string, string}|TableSeparator>
      */
     private function buildAuditResultTableRows(array $missing): array {
@@ -474,7 +479,7 @@ class AuditTranslations extends Command {
     }
 
     /**
-     * @param  array<string, array<non-falsy-string, non-empty-list<string>>>  $missing
+     * @param  MissingTranslations  $missing
      */
     private function saveResult(array $missing): void {
         $content = match ($this->save_format) {
