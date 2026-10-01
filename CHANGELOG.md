@@ -1,6 +1,25 @@
 # Release Notes
 
-## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.4.0...HEAD)
+## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.5.0...HEAD)
+
+## [v0.5.0](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.4.0...v0.5.0) - 2026-10-01
+
+### Breaking Changes
+
+- Wrap the missing translations under the `missing` key in the `json` display format, the `--for-agent` output and the saved result, like `{"missing":{"app/Example.php":{"Hello":["it"]}}}`. An empty result is now `{"missing":{}}` instead of `{}` or `[]`.
+
+### Enhancements
+
+- Add the `--unused` option and the `audit_unused` config to also report the translations defined in the `lang` folder but used in none of the scanned files, grouped by locale and translation file, with their translation.
+- Detect when the audit is run by an AI agent and print the `--for-agent` output without the option. When an agent is detected, the agent output is printed even with `--for-agent=false`.
+- Add the `unused_ignore_paths` config to leave translation files out of the unused audit, by default the `auth.php`, `pagination.php`, `passwords.php` and `validation.php` files Laravel itself uses.
+
+### Documentation
+
+- Document finding unused translations and the new shape of the JSON result.
+- Document the AI agent detection.
+
+**Full Changelog**: https://github.com/SimoneCerruti/laravel-translation-audit/compare/v0.4.0...v0.5.0
 
 ## [v0.4.0](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.3.1...v0.4.0) - 2026-10-01
 
