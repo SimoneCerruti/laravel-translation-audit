@@ -970,6 +970,61 @@ describe('agent output', function (): void {
     });
 });
 
+describe('agent detection', function (): void {
+    beforeEach(function (): void {
+        putFile('app/Example.php', "<?php __('Hello');");
+    });
+
+    it('prints only the json result when run by an agent', function (string $variable, string $value): void {
+        putenv("{$variable}={$value}");
+
+        artisan(AuditTranslations::class, ['--ansi' => true])
+            ->expectsOutput(resultJson(['app/Example.php' => ['Hello' => ['en', 'it']]]))
+            ->doesntExpectOutputToContain('%')
+            ->doesntExpectOutputToContain('Found')
+            ->assertFailed();
+    })->with([
+        'AI_AGENT' => ['AI_AGENT', 'claude-code'],
+        'known agent variable' => ['CLAUDECODE', '1'],
+    ]);
+
+    it('prints the json result whatever the display format when run by an agent', function (): void {
+        putenv('CLAUDECODE=1');
+        config(['translation-audit.display_format' => 'table']);
+
+        artisan(AuditTranslations::class, ['--display-format' => 'table'])
+            ->expectsOutput(resultJson(['app/Example.php' => ['Hello' => ['en', 'it']]]))
+            ->assertFailed();
+    });
+
+    it('does not warn when a heavy path is set for scan when run by an agent', function (): void {
+        putenv('CLAUDECODE=1');
+        config(['translation-audit.scan_paths' => ['vendor']]);
+
+        artisan(AuditTranslations::class)
+            ->doesntExpectOutputToContain('is set for scan')
+            ->assertSuccessful();
+    });
+
+    it('prints only the json result when run by an agent even when the for-agent option is false', function (): void {
+        putenv('CLAUDECODE=1');
+
+        artisan(AuditTranslations::class, ['--for-agent' => 'false'])
+            ->expectsOutput(resultJson(['app/Example.php' => ['Hello' => ['en', 'it']]]))
+            ->doesntExpectOutputToContain('Found')
+            ->assertFailed();
+    });
+
+    it('prints the result as usual when no agent is detected', function (): void {
+        putenv('AI_AGENT=');
+
+        artisan(AuditTranslations::class)
+            ->expectsOutput('    EN, IT  Hello')
+            ->expectsOutput('Found 1 key with missing translations in 1 file.')
+            ->assertFailed();
+    });
+});
+
 describe('summary', function (): void {
     beforeEach(function (): void {
         putFile('app/Example.php', "<?php __('Hello');");

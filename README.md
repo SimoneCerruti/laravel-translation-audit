@@ -116,6 +116,8 @@ php artisan translation:audit --for-agent
 
 It is a shortcut for `--display-format=json --no-progress --no-summary`, and it takes precedence over these options and their configs. It also hides the messages on the error output, like the warnings about heavy scan paths and the path of the saved file, so the output is valid JSON even for agents that merge the standard and error outputs. Errors are still printed on the error output, and the exit code stays the same: non-zero when translations are missing or the audit fails.
 
+The audit detects the most common AI agents, like Claude Code, Codex, Cursor, Gemini CLI and GitHub Copilot, through the [laravel/agent-detector](https://github.com/laravel/agent-detector) package, and prints the agent output for them without the option. When an agent is detected, the agent output is always printed, even with `--for-agent=false`.
+
 ### Finding Unused Translations
 
 Pass `--unused` to also report the translations defined in your `lang` folder but used in none of the scanned files, or set `audit_unused` to `true` in the config file to report them on every run:

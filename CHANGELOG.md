@@ -32,11 +32,13 @@
 ### Enhancements
 
 - Add the `--unused` option and the `audit_unused` config to also report the translations defined in the `lang` folder but used in none of the scanned files, grouped by locale and translation file, with their translation.
+- Detect when the audit is run by an AI agent and print the `--for-agent` output without the option. When an agent is detected, the agent output is printed even with `--for-agent=false`.
 - Add the `unused_ignore_paths` config to leave translation files out of the unused audit, by default the `auth.php`, `pagination.php`, `passwords.php` and `validation.php` files Laravel itself uses.
 
 ### Documentation
 
 - Document finding unused translations and the new shape of the JSON result.
+- Document the AI agent detection.
 
 ## [v0.3.1](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.3.0...v0.3.1) - 2026-09-30
 

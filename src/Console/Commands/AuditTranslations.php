@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use Laravel\AgentDetector\AgentDetector;
 use ParseError;
 use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\FuncCall;
@@ -63,7 +64,7 @@ class AuditTranslations extends Command {
             {--display-format= : The format in which to display the audit result. Supported formats: json, list, table. Overrides the display_format config}
             {--no-progress= : Whether to hide the progress bar while the files are scanned. Accept true or false, if no value is specified it defaults to true. Overrides the disable_progress_bar config}
             {--no-summary= : Whether to hide the result summary. Accept true or false, if no value is specified it defaults to true. Overrides the disable_summary config}
-            {--for-agent= : Output only the json result, for the invocation by an agent. Shortcut for --display-format=json --no-progress --no-summary, which it takes precedence over, together with their configs. Accept true or false, if no value is specified it defaults to true}
+            {--for-agent= : Output only the json result, for the invocation by an agent. Shortcut for --display-format=json --no-progress --no-summary, which it takes precedence over, together with their configs. Accept true or false, if no value is specified it defaults to true. Enabled automatically, even when false, if the command is run by a detected AI agent}
             {--unused= : Also audit for unused translations, defined in the translation files but used in none of the scanned files. Accept true or false, if no value is specified it defaults to true. Overrides the audit_unused config}
     TXT;
 
@@ -142,7 +143,7 @@ class AuditTranslations extends Command {
             $this->save_format = $this->should_save_result ? $this->getSaveFormat() : null;
             $this->save_path = $this->should_save_result ? $this->getSavePath() : null;
             $this->ignore_keys = $this->getIgnoreKeys();
-            $this->should_output_for_agent = $this->options_helper->boolean('for-agent', false);
+            $this->should_output_for_agent = AgentDetector::detect()->isAgent || $this->options_helper->boolean('for-agent', false);
             $this->display_format = $this->getDisplayFormat();
             $this->should_disable_progress_bar = $this->shouldDisableProgressBar();
             $this->should_disable_summary = $this->shouldDisableSummary();
