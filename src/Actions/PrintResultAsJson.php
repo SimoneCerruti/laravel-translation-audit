@@ -7,9 +7,10 @@ namespace TranslationAudit\Actions;
 use Illuminate\Support\Collection;
 use stdClass;
 use Symfony\Component\Console\Output\OutputInterface;
+use TranslationAudit\Actions\Contracts\ResultPrinter;
 use TranslationAudit\Data\AuditResult;
 
-final class PrintResultAsJson {
+final class PrintResultAsJson implements ResultPrinter {
     public function handle(AuditResult $result, OutputInterface $output): void {
         $sections = ['missing' => $result->missingByFile()];
 

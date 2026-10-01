@@ -9,6 +9,7 @@ use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Helper\TableSeparator;
 use Symfony\Component\Console\Output\OutputInterface;
+use TranslationAudit\Actions\Contracts\ResultPrinter;
 use TranslationAudit\Console\Commands\AuditTranslations;
 use TranslationAudit\Data\AuditResult;
 
@@ -16,7 +17,7 @@ use TranslationAudit\Data\AuditResult;
  * @phpstan-import-type MissingTranslations from AuditTranslations
  * @phpstan-import-type UnusedTranslations from AuditTranslations
  */
-final readonly class PrintResultAsTable {
+final readonly class PrintResultAsTable implements ResultPrinter {
     public function __construct(private FormatLocales $format_locales) {}
 
     /**

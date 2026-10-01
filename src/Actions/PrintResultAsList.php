@@ -8,6 +8,7 @@ use Illuminate\Support\Collection;
 use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Terminal;
+use TranslationAudit\Actions\Contracts\ResultPrinter;
 use TranslationAudit\Console\Commands\AuditTranslations;
 use TranslationAudit\Data\AuditResult;
 
@@ -17,7 +18,7 @@ use function Safe\preg_split;
  * @phpstan-import-type MissingTranslations from AuditTranslations
  * @phpstan-import-type UnusedTranslations from AuditTranslations
  */
-final readonly class PrintResultAsList {
+final readonly class PrintResultAsList implements ResultPrinter {
     private const string FILE_INDENT = '  ';
 
     private const string KEY_INDENT = '    ';
