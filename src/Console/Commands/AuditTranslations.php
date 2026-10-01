@@ -25,6 +25,8 @@ use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitor\NameResolver;
 use PhpParser\ParserFactory;
 use RuntimeException;
+use Symfony\Component\Console\Helper\ProgressBar;
+use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\Finder\Glob;
 use Symfony\Component\Finder\SplFileInfo;
@@ -52,6 +54,7 @@ class AuditTranslations extends Command {
             {--save-path= : The path in which to save the audit result. Overrides the save_path config}
             {--save-name= : The name of the file to save the audit result to, without the extension. It supports the following patterns, which have to be wrapped in curly braces: - now:<format>: inserts the current date in the specified format; - random:<length>: inserts random alphanumeric characters (a-zA-Z0-9). Overrides the save_name config}
             {--display-format= : The format in which to display the audit result. Supported formats: json, list, table. Overrides the display_format config}
+            {--no-progress= : Whether to hide the progress bar while the files are scanned. Accept true or false, if no value is specified it defaults to true. Overrides the disable_progress_bar config}
     TXT;
 
     /** @var string */
@@ -89,6 +92,8 @@ class AuditTranslations extends Command {
 
     private bool $should_save_result = false;
 
+    private bool $should_disable_progress_bar = false;
+
     /** @var value-of<self::SUPPORTED_SAVE_FORMATS>|null */
     private ?string $save_format = null;
 
@@ -118,6 +123,7 @@ class AuditTranslations extends Command {
             $this->save_path = $this->should_save_result ? $this->getSavePath() : null;
             $this->ignore_keys = $this->getIgnoreKeys();
             $this->display_format = $this->getDisplayFormat();
+            $this->should_disable_progress_bar = $this->options_helper->booleanOrConfig('no-progress', 'translation-audit.disable_progress_bar', false);
 
             $this->warnForHeavyPaths();
         } catch (InvalidConfigException|InvalidArgumentException $e) {
@@ -163,7 +169,8 @@ class AuditTranslations extends Command {
             return;
         }
 
-        $progress_bar = $this->output->createProgressBar($files->count());
+        $progress_output = $this->should_disable_progress_bar ? new NullOutput : $this->output;
+        $progress_bar = new ProgressBar($progress_output, $files->count());
         $progress_bar->setFormat('%current%/%max% [%bar%] %percent:3s%% %message%');
         $progress_bar->setMessage($this->getRelativePath($files->first()));
         $progress_bar->start();
@@ -174,7 +181,7 @@ class AuditTranslations extends Command {
             try {
                 $this->translation_keys[$relative_path] = $this->findTranslationKeysInFile($file);
             } catch (Exception $e) {
-                $this->newLine(2);
+                $progress_output->writeln(['', '']);
 
                 throw new RuntimeException("Unable to scan {$relative_path}: {$e->getMessage()}", $e->getCode(), previous: $e);
             }
@@ -185,7 +192,7 @@ class AuditTranslations extends Command {
         }
 
         $progress_bar->finish();
-        $this->newLine(2);
+        $progress_output->writeln(['', '']);
     }
 
     /** @return MissingTranslations */

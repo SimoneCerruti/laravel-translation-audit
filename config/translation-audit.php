@@ -44,4 +44,7 @@ return [
 
     // Format in which the audit result is displayed in the console. Supported formats: json, list, table. The --display-format option overrides it.
     'display_format' => 'list',
+
+    // Whether to hide the progress bar while the files are scanned. The --no-progress option overrides it.
+    'disable_progress_bar' => false,
 ];

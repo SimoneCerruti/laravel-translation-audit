@@ -248,6 +248,33 @@ describe('file selection', function (): void {
             ->assertSuccessful();
     });
 
+    it('hides the scan progress with the no-progress option', function (?string $value): void {
+        putFile('app/First.php', '<?php');
+
+        artisan(AuditTranslations::class, ['--no-progress' => $value])
+            ->doesntExpectOutputToContain('app/First.php')
+            ->doesntExpectOutputToContain('100%')
+            ->assertSuccessful();
+    })->with([null, 'true']);
+
+    it('hides the scan progress when the progress bar is disabled in the config', function (): void {
+        config(['translation-audit.disable_progress_bar' => true]);
+        putFile('app/First.php', '<?php');
+
+        artisan(AuditTranslations::class)
+            ->doesntExpectOutputToContain('app/First.php')
+            ->assertSuccessful();
+    });
+
+    it('shows the scan progress when the no-progress option overrides the config', function (): void {
+        config(['translation-audit.disable_progress_bar' => true]);
+        putFile('app/First.php', '<?php');
+
+        artisan(AuditTranslations::class, ['--no-progress' => 'false'])
+            ->expectsOutputToContain(']   0% app/First.php')
+            ->assertSuccessful();
+    });
+
     it('does not show the scan progress when there are no files to scan', function (): void {
         artisan(AuditTranslations::class)
             ->doesntExpectOutputToContain('0/0')
