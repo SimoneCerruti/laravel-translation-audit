@@ -13,8 +13,8 @@ use Laravel\AgentDetector\AgentDetector;
 use RuntimeException;
 use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Symfony\Component\Finder\Finder;
 use Symfony\Component\Finder\SplFileInfo;
+use TranslationAudit\Actions\DetectAppLocales;
 use TranslationAudit\Actions\DetectMissingTranslations;
 use TranslationAudit\Actions\DetectUnusedTranslations;
 use TranslationAudit\Actions\FindFilesToScan;
@@ -308,33 +308,10 @@ class AuditTranslations extends Command {
         $is_auto = $supported_locales_config[0] === 'auto';
 
         if ($is_auto) {
-            return $this->detectSupportedLocalesFromFilesystem();
+            return app(DetectAppLocales::class)->handle();
         }
 
         return $supported_locales_config;
-    }
-
-    /**
-     * @return list<string>
-     *
-     * @throws InvalidConfigException
-     */
-    private function detectSupportedLocalesFromFilesystem(): array {
-        $lang_path = lang_path();
-
-        throw_unless(is_dir($lang_path), InvalidConfigException::class, 'Unable to autodetect supported locales. The lang folder is missing.');
-
-        $json_locales = collect(Finder::create()->files()->in($lang_path)->depth(0)->name('*.json'))
-            ->map(fn (SplFileInfo $file) => $file->getBasename('.json'));
-
-        $directory_locales = collect(Finder::create()->directories()->in($lang_path)->depth(0)->notName('vendor'))
-            ->map(fn (SplFileInfo $directory) => $directory->getFilename());
-
-        $detected_locales = array_values($json_locales->concat($directory_locales)->unique()->sort()->all());
-
-        throw_if($detected_locales === [], InvalidConfigException::class, 'Unable to autodetect locales in the "lang" folder.');
-
-        return $detected_locales;
     }
 
     private function warnForHeavyPaths(): void {

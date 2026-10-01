@@ -110,15 +110,6 @@ describe('supported locales', function (): void {
             ->assertFailed();
     });
 
-    it('detects only the locales at the top level of the lang directory', function (): void {
-        config(['translation-audit.supported_locales' => ['auto']]);
-        populateLangDir(files: ['en.json', 'it/fr.json', 'vendor/some-package/es.json'], directories: ['it/de', 'vendor/some-package']);
-
-        auditAsJson()
-            ->expectsOutput(resultJson(['app/Greeter.php' => ['Hello' => ['en', 'it']]]))
-            ->assertFailed();
-    });
-
     it('does not audit ignored locales', function (): void {
         config(['translation-audit.ignore_locales' => ['en']]);
 
