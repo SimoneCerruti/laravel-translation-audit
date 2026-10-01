@@ -709,6 +709,112 @@ describe('display format', function (): void {
     ]);
 });
 
+describe('agent output', function (): void {
+    beforeEach(function (): void {
+        putFile('app/Example.php', "<?php __('Hello');");
+    });
+
+    it('prints only the json result', function (?string $value): void {
+        artisan(AuditTranslations::class, ['--for-agent' => $value])
+            ->expectsOutput(resultJson(['app/Example.php' => ['Hello' => ['en', 'it']]]))
+            ->doesntExpectOutputToContain('%')
+            ->doesntExpectOutputToContain('Found')
+            ->assertFailed();
+    })->with([null, 'true']);
+
+    it('prints an empty json object when no translation is missing', function (): void {
+        config(['translation-audit.supported_locales' => ['en']]);
+        putFile('lang/en.json', '{"Hello": "Hello"}');
+
+        artisan(AuditTranslations::class, ['--for-agent' => true])
+            ->expectsOutput('{}')
+            ->doesntExpectOutputToContain('No missing translations found.')
+            ->assertSuccessful();
+    });
+
+    it('prints the empty json object without styling', function (): void {
+        config(['translation-audit.supported_locales' => ['en']]);
+        putFile('lang/en.json', '{"Hello": "Hello"}');
+
+        artisan(AuditTranslations::class, ['--for-agent' => true, '--ansi' => true])
+            ->expectsOutput('{}')
+            ->assertSuccessful();
+    });
+
+    it('saves the result without printing where', function (): void {
+        config(['translation-audit.save_path' => base_path('audits')]);
+
+        artisan(AuditTranslations::class, ['--for-agent' => true, '--save' => true])
+            ->expectsOutput(resultJson(['app/Example.php' => ['Hello' => ['en', 'it']]]))
+            ->doesntExpectOutputToContain('Audit result saved')
+            ->assertFailed();
+
+        expect(getAuditSavedFiles())->toHaveCount(1)
+            ->and(getFirstAuditSaveFileJsonContent())->toBe(['app/Example.php' => ['Hello' => ['en', 'it']]]);
+    });
+
+    it('saves an empty result printing only the empty json object', function (): void {
+        config(['translation-audit.supported_locales' => ['en'], 'translation-audit.save_path' => base_path('audits')]);
+        putFile('lang/en.json', '{"Hello": "Hello"}');
+
+        artisan(AuditTranslations::class, ['--for-agent' => true, '--save' => true])
+            ->expectsOutput('{}')
+            ->doesntExpectOutputToContain('Audit result saved')
+            ->assertSuccessful();
+
+        expect(getAuditSavedFiles())->toHaveCount(1)
+            ->and(getFirstAuditSaveFileJsonContent())->toBe([]);
+    });
+
+    it('does not warn when a heavy path is set for scan', function (): void {
+        config(['translation-audit.scan_paths' => ['vendor']]);
+
+        artisan(AuditTranslations::class, ['--for-agent' => true])
+            ->doesntExpectOutputToContain('is set for scan')
+            ->assertSuccessful();
+    });
+
+    it('prints the result as usual when the option is false', function (): void {
+        artisan(AuditTranslations::class, ['--for-agent' => 'false'])
+            ->expectsOutput('    EN, IT  Hello')
+            ->expectsOutput('Found 1 key with missing translations in 1 file.')
+            ->assertFailed();
+    });
+
+    it('fails when the for-agent option is not a boolean', function (): void {
+        artisan(AuditTranslations::class, ['--for-agent' => 'maybe'])
+            ->expectsOutputToContain('The --for-agent option accepts only true or false.')
+            ->assertExitCode(Command::INVALID);
+    });
+
+    it('prints the json result whatever the display format', function (Closure $configure, array $options): void {
+        $configure();
+
+        artisan(AuditTranslations::class, ['--for-agent' => true, ...$options])
+            ->expectsOutput(resultJson(['app/Example.php' => ['Hello' => ['en', 'it']]]))
+            ->assertFailed();
+    })->with([
+        'option' => [fn (): null => null, ['--display-format' => 'table']],
+        'config' => [fn () => config(['translation-audit.display_format' => 'table']), []],
+    ]);
+
+    it('hides the progress bar and the summary whatever the options', function (): void {
+        artisan(AuditTranslations::class, ['--for-agent' => true, '--no-progress' => 'false', '--no-summary' => 'false'])
+            ->doesntExpectOutputToContain('%')
+            ->doesntExpectOutputToContain('Found')
+            ->assertFailed();
+    });
+
+    it('hides the progress bar and the summary whatever the config', function (): void {
+        config(['translation-audit.disable_progress_bar' => false, 'translation-audit.disable_summary' => false]);
+
+        artisan(AuditTranslations::class, ['--for-agent' => true])
+            ->doesntExpectOutputToContain('%')
+            ->doesntExpectOutputToContain('Found')
+            ->assertFailed();
+    });
+});
+
 describe('summary', function (): void {
     beforeEach(function (): void {
         putFile('app/Example.php', "<?php __('Hello');");

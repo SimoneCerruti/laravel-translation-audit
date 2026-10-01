@@ -56,6 +56,7 @@ class AuditTranslations extends Command {
             {--display-format= : The format in which to display the audit result. Supported formats: json, list, table. Overrides the display_format config}
             {--no-progress= : Whether to hide the progress bar while the files are scanned. Accept true or false, if no value is specified it defaults to true. Overrides the disable_progress_bar config}
             {--no-summary= : Whether to hide the result summary. Accept true or false, if no value is specified it defaults to true. Overrides the disable_summary config}
+            {--for-agent= : Output only the json result, for the invocation by an agent. Shortcut for --display-format=json --no-progress --no-summary, which it takes precedence over, together with their configs. Accept true or false, if no value is specified it defaults to true}
     TXT;
 
     /** @var string */
@@ -97,6 +98,8 @@ class AuditTranslations extends Command {
 
     private bool $should_disable_summary = false;
 
+    private bool $should_output_for_agent = false;
+
     /** @var value-of<self::SUPPORTED_SAVE_FORMATS>|null */
     private ?string $save_format = null;
 
@@ -125,11 +128,14 @@ class AuditTranslations extends Command {
             $this->save_format = $this->should_save_result ? $this->getSaveFormat() : null;
             $this->save_path = $this->should_save_result ? $this->getSavePath() : null;
             $this->ignore_keys = $this->getIgnoreKeys();
+            $this->should_output_for_agent = $this->options_helper->boolean('for-agent', false);
             $this->display_format = $this->getDisplayFormat();
-            $this->should_disable_progress_bar = $this->options_helper->booleanOrConfig('no-progress', 'translation-audit.disable_progress_bar', false);
-            $this->should_disable_summary = $this->options_helper->booleanOrConfig('no-summary', 'translation-audit.disable_summary', false);
+            $this->should_disable_progress_bar = $this->shouldDisableProgressBar();
+            $this->should_disable_summary = $this->shouldDisableSummary();
 
-            $this->warnForHeavyPaths();
+            if (! $this->should_output_for_agent) {
+                $this->warnForHeavyPaths();
+            }
         } catch (InvalidConfigException|InvalidArgumentException $e) {
             $this->error($e->getMessage());
 
@@ -155,7 +161,11 @@ class AuditTranslations extends Command {
         }
 
         if ($missing === []) {
-            $this->info('No missing translations found.');
+            if ($this->should_output_for_agent) {
+                $this->line('{}');
+            } else {
+                $this->info('No missing translations found.');
+            }
 
             return self::SUCCESS;
         }
@@ -511,7 +521,9 @@ class AuditTranslations extends Command {
         File::ensureDirectoryExists(\dirname($this->save_path));
         File::put($this->save_path, $content);
 
-        $this->info("Audit result saved: {$this->save_path}");
+        if (! $this->should_output_for_agent) {
+            $this->info("Audit result saved: {$this->save_path}");
+        }
     }
 
     /**
@@ -552,10 +564,22 @@ class AuditTranslations extends Command {
      * @throws InvalidConfigException
      */
     private function getDisplayFormat(): string {
+        if ($this->should_output_for_agent) {
+            return 'json';
+        }
+
         $format = $this->options_helper->nonEmptyStringOrConfig('display-format', 'translation-audit.display_format');
 
         throw_unless(\in_array($format, self::SUPPORTED_DISPLAY_FORMATS), InvalidConfigException::class, "Invalid display format '{$format}'. Supported formats: ".implode(', ', self::SUPPORTED_DISPLAY_FORMATS));
 
         return $format;
+    }
+
+    private function shouldDisableProgressBar(): bool {
+        return $this->should_output_for_agent || $this->options_helper->booleanOrConfig('no-progress', 'translation-audit.disable_progress_bar', false);
+    }
+
+    private function shouldDisableSummary(): bool {
+        return $this->should_output_for_agent || $this->options_helper->booleanOrConfig('no-summary', 'translation-audit.disable_summary', false);
     }
 }
