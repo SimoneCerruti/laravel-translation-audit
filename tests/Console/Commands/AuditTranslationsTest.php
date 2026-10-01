@@ -3,7 +3,12 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Artisan;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Output\BufferedOutput;
+use Symfony\Component\Console\Output\ConsoleOutputInterface;
+use Symfony\Component\Console\Output\ConsoleSectionOutput;
+use Symfony\Component\Console\Output\OutputInterface;
 use TranslationAudit\Console\Commands\AuditTranslations;
 
 use function Pest\Laravel\artisan;
@@ -273,6 +278,40 @@ describe('file selection', function (): void {
         artisan(AuditTranslations::class, ['--no-progress' => 'false'])
             ->expectsOutputToContain(']   0% app/First.php')
             ->assertSuccessful();
+    });
+
+    it('shows the scan progress on the error output, keeping the standard output for the result', function (): void {
+        putFile('app/Example.php', "<?php __('Hello');");
+
+        $output = new class extends BufferedOutput implements ConsoleOutputInterface {
+            private OutputInterface $error_output;
+
+            public function __construct() {
+                parent::__construct();
+                $this->error_output = new BufferedOutput;
+            }
+
+            public function getErrorOutput(): OutputInterface {
+                return $this->error_output;
+            }
+
+            public function setErrorOutput(OutputInterface $error): void {
+                $this->error_output = $error;
+            }
+
+            public function section(): ConsoleSectionOutput {
+                throw new LogicException('Sections are not supported.');
+            }
+        };
+
+        Artisan::call(AuditTranslations::class, ['--display-format' => 'json'], $output);
+
+        $error_output = $output->getErrorOutput();
+
+        assert($error_output instanceof BufferedOutput);
+
+        expect($output->fetch())->toBe(resultJson(['app/Example.php' => ['Hello' => ['en', 'it']]]).PHP_EOL.PHP_EOL.'Found 1 key with missing translations in 1 file.'.PHP_EOL)
+            ->and($error_output->fetch())->toContain('] 100%');
     });
 
     it('does not show the scan progress when there are no files to scan', function (): void {

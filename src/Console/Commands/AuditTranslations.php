@@ -25,8 +25,8 @@ use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitor\NameResolver;
 use PhpParser\ParserFactory;
 use RuntimeException;
-use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Output\NullOutput;
+use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\Finder\Glob;
 use Symfony\Component\Finder\SplFileInfo;
@@ -186,8 +186,8 @@ class AuditTranslations extends Command {
             return;
         }
 
-        $progress_output = $this->should_disable_progress_bar ? new NullOutput : $this->output;
-        $progress_bar = new ProgressBar($progress_output, $files->count());
+        $progress_output = $this->should_disable_progress_bar ? new SymfonyStyle($this->input, new NullOutput) : $this->output->getErrorStyle();
+        $progress_bar = $progress_output->createProgressBar($files->count());
         $progress_bar->setFormat('%current%/%max% [%bar%] %percent:3s%% %message%');
         $progress_bar->setMessage($this->getRelativePath($files->first()));
         $progress_bar->start();
@@ -198,7 +198,7 @@ class AuditTranslations extends Command {
             try {
                 $this->translation_keys[$relative_path] = $this->findTranslationKeysInFile($file);
             } catch (Exception $e) {
-                $progress_output->writeln(['', '']);
+                $progress_output->newLine(2);
 
                 throw new RuntimeException("Unable to scan {$relative_path}: {$e->getMessage()}", $e->getCode(), previous: $e);
             }
@@ -209,7 +209,7 @@ class AuditTranslations extends Command {
         }
 
         $progress_bar->finish();
-        $progress_output->writeln(['', '']);
+        $progress_output->newLine(2);
     }
 
     /** @return MissingTranslations */
