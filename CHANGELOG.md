@@ -2,6 +2,20 @@
 
 ## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.3.1...HEAD)
 
+### Enhancements
+
+- Add the `--no-progress` option and the `disable_progress_bar` config to hide the progress bar while the files are scanned.
+- Add the `--no-summary` option and the `disable_summary` config to hide the summary printed after the result.
+- Add the `--for-agent` option to print only the JSON result, for the invocation by an AI agent. It prints `{}` when no translation is missing, hides the progress bar, the summary, the heavy path warnings and the path of the saved file, and takes precedence over `--display-format`, `--no-progress`, `--no-summary` and their configs.
+
+### Bug Fixes
+
+- Print the blank lines closing the progress bar on the error output, like the progress bar itself, so the standard output holds only the result and the summary.
+
+### Documentation
+
+- Document hiding the progress bar and the summary, and the output for AI agents.
+
 ## [v0.3.1](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.3.0...v0.3.1) - 2026-09-30
 
 ### Bug Fixes

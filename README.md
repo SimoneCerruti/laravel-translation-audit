@@ -64,6 +64,8 @@ The command lists the keys with missing translations grouped by file, each prece
 Found 3 keys with missing translations in 2 files.
 ```
 
+While the files are scanned, a progress bar shows the file being scanned. The progress bar is printed on the error output, so redirecting the standard output, like `php artisan translation:audit > result.txt`, captures only the result and the summary.
+
 The command exits with a non-zero status code when it finds missing translations, so it can be used to fail a CI pipeline.
 
 ### Choosing the Display Format
@@ -85,6 +87,30 @@ php artisan translation:audit --display-format=json
 ```
 
 Every format is followed by a summary, like `Found 3 keys with missing translations in 2 files.`
+
+### Hiding the Progress Bar and the Summary
+
+Pass `--no-progress` to hide the progress bar, and `--no-summary` to hide the summary:
+
+```bash
+php artisan translation:audit --no-progress --no-summary
+```
+
+To always hide them, set `disable_progress_bar` or `disable_summary` to `true` in the config file. Both options accept `true` or `false`, mean `true` when passed without a value, and override the config for a single run, so `--no-summary=false` prints the summary even when the config hides it.
+
+### Running the Audit from an AI Agent
+
+Pass `--for-agent` when the audit is run by an AI agent or by a script that parses its output. The command prints only the JSON result, on a single line, and prints `{}` when no translation is missing:
+
+```bash
+php artisan translation:audit --for-agent
+```
+
+```json
+{"app/Http/Controllers/HomeController.php":{"auth.failed":["it"],"messages.welcome":["en","it"]}}
+```
+
+It is a shortcut for `--display-format=json --no-progress --no-summary`, and it takes precedence over these options and their configs. It also hides the warnings about heavy scan paths and the path of the saved file, so the output is always valid JSON. Errors are still printed, and the exit code stays the same: non-zero when translations are missing or the audit fails.
 
 ### Ignoring Keys
 
