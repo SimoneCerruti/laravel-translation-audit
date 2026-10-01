@@ -2,25 +2,6 @@
 
 ## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.3.1...HEAD)
 
-### Breaking Changes
-
-- Print only the result on the standard output, and the summary, the messages and the errors on the error output, so piping or redirecting the standard output captures only the result. Scripts reading the summary or the messages from the standard output have to read them from the error output.
-
-### Enhancements
-
-- Add the `--no-progress` option and the `disable_progress_bar` config to hide the progress bar while the files are scanned.
-- Add the `--no-summary` option and the `disable_summary` config to hide the summary printed after the result.
-- Add the `--for-agent` option to print only the JSON result, for the invocation by an AI agent. It hides the progress bar, the summary and the messages, like the heavy path warnings and the path of the saved file, so the output is valid JSON even when the standard and error outputs are merged. Errors are still printed. It takes precedence over `--display-format`, `--no-progress`, `--no-summary` and their configs.
-- Show the progress bar only when the error output is a terminal, so it no longer fills CI and agent logs. Pass `--ansi` to show it anyway.
-
-### Bug Fixes
-
-- Print `{}` with the `json` display format when no translation is missing, instead of the `No missing translations found.` text, so the output is always valid JSON. The message is now printed on the error output.
-
-### Documentation
-
-- Document the output streams, hiding the progress bar and the summary, and the output for AI agents.
-
 ## [v0.3.1](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.3.0...v0.3.1) - 2026-09-30
 
 ### Bug Fixes
