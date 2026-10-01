@@ -31,7 +31,7 @@
 
 ### Enhancements
 
-- Add the `--unused` option and the `audit_unused` config to also report the translations defined in the `lang` folder but used in none of the scanned files, grouped by locale and translation file.
+- Add the `--unused` option and the `audit_unused` config to also report the translations defined in the `lang` folder but used in none of the scanned files, grouped by locale and translation file, with their translation.
 - Add the `unused_ignore_paths` config to leave translation files out of the unused audit, by default the `auth.php`, `pagination.php`, `passwords.php` and `validation.php` files Laravel itself uses.
 
 ### Documentation

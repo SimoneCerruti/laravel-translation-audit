@@ -97,11 +97,12 @@ final readonly class PrintResultAsTable {
             foreach ($files as $file_path => $keys) {
                 $is_first_file_row = true;
 
-                foreach (array_keys($keys) as $key) {
+                foreach ($keys as $key => $translation) {
                     $rows[] = [
                         $is_first_locale_row ? $this->format_locales->handle([(string) $locale]) : '',
                         $is_first_file_row ? OutputFormatter::escape((string) $file_path) : '',
                         OutputFormatter::escape((string) $key),
+                        OutputFormatter::escape($translation),
                     ];
 
                     $is_first_locale_row = false;
@@ -111,7 +112,7 @@ final readonly class PrintResultAsTable {
         }
 
         new Table($output)
-            ->setHeaders(['Locale', 'Translation file', 'Unused key'])
+            ->setHeaders(['Locale', 'Translation file', 'Unused key', 'Translation'])
             ->setRows($rows)
             ->render();
     }

@@ -780,7 +780,7 @@ describe('unused translations', function (): void {
             ->assertFailed();
     })->with([
         'list' => ['list', 'Unused translations'],
-        'table' => ['table', '| IT     | lang/it/admin/users.php | admin/users.title      |'],
+        'table' => ['table', '| IT     | lang/it/admin/users.php | admin/users.title      | Utenti       |'],
     ]);
 
     it('summarizes the missing and the unused translations', function (): void {

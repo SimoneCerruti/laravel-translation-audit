@@ -79,13 +79,17 @@ it('prints the missing and the unused translations under their headings', functi
           EN
             lang/en/messages.php
               messages.old
+                Old
 
           IT
             lang/it.json
               Bye
+                Ciao
             lang/it/messages.php
               messages.old
+                Vecchio
               messages.older
+                Più vecchio
 
         TXT);
 });
@@ -98,15 +102,22 @@ it('prints only the heading of the non-empty section', function (array $missing,
     'only unused' => [[], ['it' => ['lang/it.json' => ['Bye' => 'Ciao']]], 'Unused translations', 'Missing translations'],
 ]);
 
-it('wraps the long unused keys aligned under the key column', function (): void {
+it('wraps the long unused keys and translations aligned under their column', function (): void {
     expect(printResultAsList([], columns: 40, unused: ['en' => ['lang/en.json' => ['Welcome back! Please sign in to continue.' => 'Welcome back! Please sign in to continue.']]]))
         ->toContain(<<<'TXT'
                   Welcome back! Please sign in to
                   continue.
+                    Welcome back! Please sign in to
+                    continue.
             TXT);
 });
 
+it('indents every line of the multiline translations', function (): void {
+    expect(printResultAsList([], unused: ['en' => ['lang/en.json' => ['Address' => "Street\nCity"]]]))
+        ->toContain("      Address\n        Street\n        City\n");
+});
+
 it('prints the unused keys and files containing console tags verbatim', function (): void {
-    expect(printResultAsList([], unused: ['en' => ['lang/<info>.json' => ['<error>Hello</error>' => 'Hello']]]))
-        ->toContain("    lang/<info>.json\n      <error>Hello</error>\n");
+    expect(printResultAsList([], unused: ['en' => ['lang/<info>.json' => ['<error>Hello</error>' => '<comment>Ciao</comment>']]]))
+        ->toContain("    lang/<info>.json\n      <error>Hello</error>\n        <comment>Ciao</comment>\n");
 });

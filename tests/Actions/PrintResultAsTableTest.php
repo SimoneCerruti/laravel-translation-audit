@@ -57,15 +57,15 @@ it('prints the missing and the unused translations in two tables under their hea
 
         Unused translations
 
-        +--------+----------------------+----------------+
-        | Locale | Translation file     | Unused key     |
-        +--------+----------------------+----------------+
-        | EN     | lang/en/messages.php | messages.old   |
-        +--------+----------------------+----------------+
-        | IT     | lang/it.json         | Bye            |
-        |        | lang/it/messages.php | messages.old   |
-        |        |                      | messages.older |
-        +--------+----------------------+----------------+
+        +--------+----------------------+----------------+-------------+
+        | Locale | Translation file     | Unused key     | Translation |
+        +--------+----------------------+----------------+-------------+
+        | EN     | lang/en/messages.php | messages.old   | Old         |
+        +--------+----------------------+----------------+-------------+
+        | IT     | lang/it.json         | Bye            | Ciao        |
+        |        | lang/it/messages.php | messages.old   | Vecchio     |
+        |        |                      | messages.older | Più vecchio |
+        +--------+----------------------+----------------+-------------+
 
         TXT);
 });
@@ -79,6 +79,6 @@ it('prints only the heading of the non-empty section', function (array $missing,
 ]);
 
 it('prints the unused keys and files containing console tags verbatim', function (): void {
-    expect(printResultAsTable([], ['en' => ['lang/<info>.json' => ['<error>Hello</error>' => 'Hello']]]))
-        ->toContain('| EN     | lang/<info>.json | <error>Hello</error> |');
+    expect(printResultAsTable([], ['en' => ['lang/<info>.json' => ['<error>Hello</error>' => '<comment>Ciao</comment>']]]))
+        ->toContain('| EN     | lang/<info>.json | <error>Hello</error> | <comment>Ciao</comment> |');
 });

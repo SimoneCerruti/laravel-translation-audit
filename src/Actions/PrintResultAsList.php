@@ -9,6 +9,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Terminal;
 use TranslationAudit\Console\Commands\AuditTranslations;
 
+use function Safe\preg_split;
+
 /**
  * @phpstan-import-type AuditResult from AuditTranslations
  * @phpstan-import-type MissingTranslations from AuditTranslations
@@ -26,6 +28,8 @@ final readonly class PrintResultAsList {
     private const string TRANSLATION_FILE_INDENT = '    ';
 
     private const string UNUSED_KEY_INDENT = '      ';
+
+    private const string TRANSLATION_INDENT = '        ';
 
     /** Below this terminal space the keys are not wrapped, as the lines would be too short to read. */
     private const int MIN_KEY_WIDTH = 20;
@@ -84,7 +88,7 @@ final readonly class PrintResultAsList {
 
             foreach ($keys as $key => $locales) {
                 $output->writeln(
-                    self::KEY_INDENT.'<fg=yellow>'.mb_str_pad($this->format_locales->handle($locales), $locales_width).'</>'.self::LOCALES_GAP.OutputFormatter::escape($this->wrapKey((string) $key, $key_indent)),
+                    self::KEY_INDENT.'<fg=yellow>'.mb_str_pad($this->format_locales->handle($locales), $locales_width).'</>'.self::LOCALES_GAP.OutputFormatter::escape($this->wrap((string) $key, $key_indent)),
                 );
             }
         }
@@ -104,17 +108,22 @@ final readonly class PrintResultAsList {
             foreach ($files as $file_path => $keys) {
                 $output->writeln(self::TRANSLATION_FILE_INDENT.'<options=bold>'.OutputFormatter::escape((string) $file_path).'</>');
 
-                foreach (array_keys($keys) as $key) {
-                    $output->writeln(self::UNUSED_KEY_INDENT.OutputFormatter::escape($this->wrapKey((string) $key, self::UNUSED_KEY_INDENT)));
+                foreach ($keys as $key => $translation) {
+                    $output->writeln(self::UNUSED_KEY_INDENT.OutputFormatter::escape($this->wrap((string) $key, self::UNUSED_KEY_INDENT)));
+                    $output->writeln(self::TRANSLATION_INDENT.'<fg=gray>'.OutputFormatter::escape($this->wrap($translation, self::TRANSLATION_INDENT)).'</>');
                 }
             }
         }
     }
 
-    /** Wrap the key to the terminal width, indenting the following lines, unless the terminal is too narrow. */
-    private function wrapKey(string $key, string $indent): string {
-        $key_width = new Terminal()->getWidth() - mb_strlen($indent);
+    /** Wrap the text to the terminal width, unless the terminal is too narrow, indenting the following lines as the first one. */
+    private function wrap(string $text, string $indent): string {
+        $width = new Terminal()->getWidth() - mb_strlen($indent);
+        $lines = preg_split('/\R/', $text);
 
-        return $key_width >= self::MIN_KEY_WIDTH ? wordwrap($key, $key_width, "\n".$indent) : $key;
+        return implode("\n".$indent, array_map(
+            fn (string $line): string => $width >= self::MIN_KEY_WIDTH ? wordwrap($line, $width, "\n".$indent) : $line,
+            $lines,
+        ));
     }
 }

@@ -126,7 +126,7 @@ php artisan translation:audit --unused
 
 The option accepts `true` or `false`, means `true` when passed without a value, and overrides the config for a single run. Both the JSON files, like `lang/it.json`, and the PHP files, like `lang/it/messages.php`, are audited, with the keys of the PHP files prefixed by their group, like `messages.welcome`.
 
-The `list` and `table` formats print the missing and the unused translations under their own headings, with the unused keys grouped by locale and then by translation file. The `json` format adds them under the `unused` key, with their translation:
+The `list` and `table` formats print the missing and the unused translations under their own headings, with the unused keys grouped by locale and then by translation file, each followed by its translation. The `json` format adds them under the `unused` key, mapped to their translation:
 
 ```json
 {"missing":{"app/Http/Controllers/HomeController.php":{"auth.failed":["it"]}},"unused":{"it":{"lang/it.json":{"Goodbye":"Arrivederci"},"lang/it/messages.php":{"messages.old":"Vecchio"}}}}
