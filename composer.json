@@ -69,6 +69,10 @@
       "@build",
       "@php vendor/bin/testbench serve --ansi"
     ],
+    "workbench:audit": [
+      "@php vendor/bin/testbench workbench:sync-skeleton --ansi @no_additional_args",
+      "@php vendor/bin/testbench translation:audit --ansi --follow-links @additional_args"
+    ],
     "pint": [
       "vendor/bin/pint --parallel"
     ],

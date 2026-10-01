@@ -22,6 +22,7 @@ This repository is a Laravel package. Keep the package focused, idiomatic, and e
 - Rector fix: `composer rector`
 - Workbench build: `composer build`
 - Workbench server: `composer serve`
+- Workbench audit: `composer workbench:audit -- <options>` (syncs the skeleton, then runs `translation:audit --follow-links`)
 
 ## Local Skills
 
