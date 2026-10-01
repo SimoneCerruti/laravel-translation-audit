@@ -3,12 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Artisan;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Output\BufferedOutput;
-use Symfony\Component\Console\Output\ConsoleOutputInterface;
-use Symfony\Component\Console\Output\ConsoleSectionOutput;
-use Symfony\Component\Console\Output\OutputInterface;
 use TranslationAudit\Console\Commands\AuditTranslations;
 
 use function Pest\Laravel\artisan;
@@ -247,7 +242,7 @@ describe('file selection', function (): void {
         putFile('app/First.php', '<?php');
         putFile('app/Second.php', '<?php');
 
-        artisan(AuditTranslations::class)
+        artisan(AuditTranslations::class, ['--ansi' => true])
             ->expectsOutputToContain(']   0% app/First.php')
             ->expectsOutputToContain('] 100%')
             ->assertSuccessful();
@@ -256,7 +251,7 @@ describe('file selection', function (): void {
     it('hides the scan progress with the no-progress option', function (?string $value): void {
         putFile('app/First.php', '<?php');
 
-        artisan(AuditTranslations::class, ['--no-progress' => $value])
+        artisan(AuditTranslations::class, ['--no-progress' => $value, '--ansi' => true])
             ->doesntExpectOutputToContain('app/First.php')
             ->doesntExpectOutputToContain('100%')
             ->assertSuccessful();
@@ -266,7 +261,7 @@ describe('file selection', function (): void {
         config(['translation-audit.disable_progress_bar' => true]);
         putFile('app/First.php', '<?php');
 
-        artisan(AuditTranslations::class)
+        artisan(AuditTranslations::class, ['--ansi' => true])
             ->doesntExpectOutputToContain('app/First.php')
             ->assertSuccessful();
     });
@@ -275,7 +270,7 @@ describe('file selection', function (): void {
         config(['translation-audit.disable_progress_bar' => true]);
         putFile('app/First.php', '<?php');
 
-        artisan(AuditTranslations::class, ['--no-progress' => 'false'])
+        artisan(AuditTranslations::class, ['--no-progress' => 'false', '--ansi' => true])
             ->expectsOutputToContain(']   0% app/First.php')
             ->assertSuccessful();
     });
@@ -283,35 +278,20 @@ describe('file selection', function (): void {
     it('shows the scan progress on the error output, keeping the standard output for the result', function (): void {
         putFile('app/Example.php', "<?php __('Hello');");
 
-        $output = new class extends BufferedOutput implements ConsoleOutputInterface {
-            private OutputInterface $error_output;
+        $result = auditWithSeparateOutputs(['--display-format' => 'json'], decorated_error_output: true);
 
-            public function __construct() {
-                parent::__construct();
-                $this->error_output = new BufferedOutput;
-            }
+        expect($result['output'])->toBe(resultJson(['app/Example.php' => ['Hello' => ['en', 'it']]]).PHP_EOL)
+            ->and($result['error_output'])->toContain('] 100%');
+    });
 
-            public function getErrorOutput(): OutputInterface {
-                return $this->error_output;
-            }
+    it('hides the scan progress when the error output is not a terminal', function (): void {
+        config(['translation-audit.disable_progress_bar' => false]);
+        putFile('app/Example.php', "<?php __('Hello');");
 
-            public function setErrorOutput(OutputInterface $error): void {
-                $this->error_output = $error;
-            }
+        $result = auditWithSeparateOutputs(['--no-progress' => 'false']);
 
-            public function section(): ConsoleSectionOutput {
-                throw new LogicException('Sections are not supported.');
-            }
-        };
-
-        Artisan::call(AuditTranslations::class, ['--display-format' => 'json'], $output);
-
-        $error_output = $output->getErrorOutput();
-
-        assert($error_output instanceof BufferedOutput);
-
-        expect($output->fetch())->toBe(resultJson(['app/Example.php' => ['Hello' => ['en', 'it']]]).PHP_EOL.PHP_EOL.'Found 1 key with missing translations in 1 file.'.PHP_EOL)
-            ->and($error_output->fetch())->toContain('] 100%');
+        expect($result['error_output'])->not->toContain('%')
+            ->and($result['output'])->not->toContain('%');
     });
 
     it('does not show the scan progress when there are no files to scan', function (): void {
@@ -754,7 +734,7 @@ describe('agent output', function (): void {
     });
 
     it('prints only the json result', function (?string $value): void {
-        artisan(AuditTranslations::class, ['--for-agent' => $value])
+        artisan(AuditTranslations::class, ['--for-agent' => $value, '--ansi' => true])
             ->expectsOutput(resultJson(['app/Example.php' => ['Hello' => ['en', 'it']]]))
             ->doesntExpectOutputToContain('%')
             ->doesntExpectOutputToContain('Found')
@@ -838,7 +818,7 @@ describe('agent output', function (): void {
     ]);
 
     it('hides the progress bar and the summary whatever the options', function (): void {
-        artisan(AuditTranslations::class, ['--for-agent' => true, '--no-progress' => 'false', '--no-summary' => 'false'])
+        artisan(AuditTranslations::class, ['--for-agent' => true, '--no-progress' => 'false', '--no-summary' => 'false', '--ansi' => true])
             ->doesntExpectOutputToContain('%')
             ->doesntExpectOutputToContain('Found')
             ->assertFailed();
@@ -847,7 +827,7 @@ describe('agent output', function (): void {
     it('hides the progress bar and the summary whatever the config', function (): void {
         config(['translation-audit.disable_progress_bar' => false, 'translation-audit.disable_summary' => false]);
 
-        artisan(AuditTranslations::class, ['--for-agent' => true])
+        artisan(AuditTranslations::class, ['--for-agent' => true, '--ansi' => true])
             ->doesntExpectOutputToContain('%')
             ->doesntExpectOutputToContain('Found')
             ->assertFailed();
@@ -901,5 +881,95 @@ describe('summary', function (): void {
         artisan(AuditTranslations::class, ['--no-summary' => 'maybe'])
             ->expectsOutputToContain('The --no-summary option accepts only true or false.')
             ->assertExitCode(Command::INVALID);
+    });
+});
+
+describe('output streams', function (): void {
+    it('prints the result on the standard output and the summary on the error output', function (string $format, string $result): void {
+        putFile('app/Example.php', "<?php __('Hello');");
+
+        $output = auditWithSeparateOutputs(['--display-format' => $format]);
+
+        expect($output['exit_code'])->toBe(Command::FAILURE)
+            ->and($output['output'])->toContain($result)
+            ->and($output['output'])->not->toContain('Found')
+            ->and($output['error_output'])->toBe(PHP_EOL.'Found 1 key with missing translations in 1 file.'.PHP_EOL);
+    })->with('display formats');
+
+    it('prints nothing on the standard output when no translation is missing', function (string $format): void {
+        $output = auditWithSeparateOutputs(['--display-format' => $format]);
+
+        expect($output['exit_code'])->toBe(Command::SUCCESS)
+            ->and($output['output'])->toBeEmpty()
+            ->and($output['error_output'])->toBe('No missing translations found.'.PHP_EOL);
+    })->with(['list', 'table']);
+
+    it('prints an empty json object on the standard output when no translation is missing', function (): void {
+        $output = auditWithSeparateOutputs(['--display-format' => 'json']);
+
+        expect($output['exit_code'])->toBe(Command::SUCCESS)
+            ->and($output['output'])->toBe('{}'.PHP_EOL)
+            ->and($output['error_output'])->toBe('No missing translations found.'.PHP_EOL);
+    });
+
+    it('prints nothing on the error output for an agent', function (bool $is_missing): void {
+        config(['translation-audit.scan_paths' => ['app/**/*.php', 'vendor'], 'translation-audit.save_path' => base_path('audits')]);
+        putFile('app/Example.php', $is_missing ? "<?php __('Hello');" : '<?php');
+
+        $output = auditWithSeparateOutputs(['--for-agent' => true, '--save' => true], decorated_error_output: true);
+
+        expect($output['output'])->toBeJson()
+            ->and($output['error_output'])->toBeEmpty();
+    })->with(['missing translations' => true, 'no missing translation' => false]);
+
+    it('prints the heavy path warnings on the error output', function (): void {
+        config(['translation-audit.scan_paths' => ['vendor']]);
+
+        $output = auditWithSeparateOutputs();
+
+        expect($output['output'])->toBeEmpty()
+            ->and($output['error_output'])->toContain("The '".base_path('vendor')."' is set for scan.");
+    });
+
+    it('prints the path of the saved result on the error output', function (): void {
+        config(['translation-audit.save_path' => base_path('audits')]);
+
+        $output = auditWithSeparateOutputs(['--save' => true, '--save-name' => 'audit']);
+
+        expect($output['output'])->toBeEmpty()
+            ->and($output['error_output'])->toContain('Audit result saved: '.base_path('audits').DIRECTORY_SEPARATOR.'audit.json');
+    });
+
+    it('prints the configuration errors on the error output', function (): void {
+        config(['translation-audit.scan_paths' => []]);
+
+        $output = auditWithSeparateOutputs();
+
+        expect($output['exit_code'])->toBe(Command::INVALID)
+            ->and($output['output'])->toBeEmpty()
+            ->and($output['error_output'])->toBe('Specify which paths to scan in the "scan_paths" config.'.PHP_EOL);
+    });
+
+    it('prints the errors on the error output for an agent', function (Closure $configure, int $exit_code, string $error): void {
+        $configure();
+
+        $output = auditWithSeparateOutputs(['--for-agent' => true]);
+
+        expect($output['exit_code'])->toBe($exit_code)
+            ->and($output['output'])->toBeEmpty()
+            ->and($output['error_output'])->toContain($error);
+    })->with([
+        'invalid option' => [fn () => config(['translation-audit.disable_summary' => 'maybe']), Command::INVALID, 'disable_summary'],
+        'unparsable file' => [fn () => putFile('app/Broken.php', '<?php function ('), Command::FAILURE, 'Unable to scan app/Broken.php: Syntax error'],
+    ]);
+
+    it('prints the scan errors on the error output', function (): void {
+        putFile('app/Broken.php', '<?php function (');
+
+        $output = auditWithSeparateOutputs();
+
+        expect($output['exit_code'])->toBe(Command::FAILURE)
+            ->and($output['output'])->toBeEmpty()
+            ->and($output['error_output'])->toContain('Unable to scan app/Broken.php: Syntax error');
     });
 });

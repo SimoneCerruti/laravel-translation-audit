@@ -133,11 +133,9 @@ class AuditTranslations extends Command {
             $this->should_disable_progress_bar = $this->shouldDisableProgressBar();
             $this->should_disable_summary = $this->shouldDisableSummary();
 
-            if (! $this->should_output_for_agent) {
-                $this->warnForHeavyPaths();
-            }
+            $this->warnForHeavyPaths();
         } catch (InvalidConfigException|InvalidArgumentException $e) {
-            $this->error($e->getMessage());
+            $this->printError($e->getMessage());
 
             return self::INVALID;
         }
@@ -145,7 +143,7 @@ class AuditTranslations extends Command {
         try {
             return $this->audit();
         } catch (Exception $e) {
-            $this->error($e->getMessage());
+            $this->printError($e->getMessage());
 
             return self::FAILURE;
         }
@@ -161,11 +159,11 @@ class AuditTranslations extends Command {
         }
 
         if ($missing === []) {
-            if ($this->should_output_for_agent) {
+            if ($this->display_format === 'json') {
                 $this->line('{}');
-            } else {
-                $this->info('No missing translations found.');
             }
+
+            $this->printMessage('No missing translations found.', 'info');
 
             return self::SUCCESS;
         }
@@ -173,7 +171,7 @@ class AuditTranslations extends Command {
         $this->printAuditResult($missing);
 
         if (! $this->should_disable_summary) {
-            $this->newLine();
+            $this->output->getErrorStyle()->newLine();
             $this->printResultSummary($missing);
         }
 
@@ -252,13 +250,13 @@ class AuditTranslations extends Command {
         $keys_count = array_sum(array_map(count(...), $missing));
         $files_count = \count($missing);
 
-        $this->error(\sprintf(
+        $this->printMessage(\sprintf(
             'Found %d %s with missing translations in %d %s.',
             $keys_count,
             Str::plural('key', $keys_count),
             $files_count,
             Str::plural('file', $files_count),
-        ));
+        ), 'error');
     }
 
     /** @return Collection<int, SplFileInfo> */
@@ -506,7 +504,7 @@ class AuditTranslations extends Command {
         collect($this->scan_paths)
             ->map(base_path(...))
             ->intersect($heavy_paths)
-            ->each(fn (string $path) => $this->warn("The '{$path}' is set for scan. This may cause heavy resource usage and significantly slow down the audit."));
+            ->each(fn (string $path) => $this->printMessage("The '{$path}' is set for scan. This may cause heavy resource usage and significantly slow down the audit.", 'comment'));
     }
 
     /**
@@ -521,9 +519,7 @@ class AuditTranslations extends Command {
         File::ensureDirectoryExists(\dirname($this->save_path));
         File::put($this->save_path, $content);
 
-        if (! $this->should_output_for_agent) {
-            $this->info("Audit result saved: {$this->save_path}");
-        }
+        $this->printMessage("Audit result saved: {$this->save_path}", 'info');
     }
 
     /**
@@ -575,11 +571,28 @@ class AuditTranslations extends Command {
         return $format;
     }
 
+    /** Whether to hide the progress bar: when asked to, for an agent, or when the error output is not a terminal. */
     private function shouldDisableProgressBar(): bool {
-        return $this->should_output_for_agent || $this->options_helper->booleanOrConfig('no-progress', 'translation-audit.disable_progress_bar', false);
+        $is_disabled = $this->options_helper->booleanOrConfig('no-progress', 'translation-audit.disable_progress_bar', false);
+
+        return $is_disabled || $this->should_output_for_agent || ! $this->output->getErrorStyle()->isDecorated();
     }
 
     private function shouldDisableSummary(): bool {
-        return $this->should_output_for_agent || $this->options_helper->booleanOrConfig('no-summary', 'translation-audit.disable_summary', false);
+        $is_disabled = $this->options_helper->booleanOrConfig('no-summary', 'translation-audit.disable_summary', false);
+
+        return $is_disabled || $this->should_output_for_agent;
+    }
+
+    private function printMessage(string $message, string $style): void {
+        if ($this->should_output_for_agent) {
+            return;
+        }
+
+        $this->output->getErrorStyle()->writeln("<{$style}>{$message}</{$style}>");
+    }
+
+    private function printError(string $message): void {
+        $this->output->getErrorStyle()->writeln("<error>{$message}</error>");
     }
 }

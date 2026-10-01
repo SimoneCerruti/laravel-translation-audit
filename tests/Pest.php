@@ -2,8 +2,13 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Illuminate\Testing\PendingCommand;
+use Symfony\Component\Console\Output\BufferedOutput;
+use Symfony\Component\Console\Output\ConsoleOutputInterface;
+use Symfony\Component\Console\Output\ConsoleSectionOutput;
+use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Finder\SplFileInfo;
 use TranslationAudit\Console\Commands\AuditTranslations;
 use TranslationAudit\Tests\TestCase;
@@ -101,4 +106,37 @@ function auditAsJson(array $parameters = []): PendingCommand {
  */
 function resultJson(array $missing): string {
     return json_encode($missing, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+}
+
+/**
+ * Run the audit on an output that keeps the standard output and the error output apart, like a real console.
+ * The error output is decorated only when asked to, as when it is a terminal.
+ *
+ * @param  array<string, mixed>  $parameters
+ * @return array{exit_code: int, output: string, error_output: string}
+ */
+function auditWithSeparateOutputs(array $parameters = [], bool $decorated_error_output = false): array {
+    $error_output = new BufferedOutput(decorated: $decorated_error_output);
+
+    $output = new class($error_output) extends BufferedOutput implements ConsoleOutputInterface {
+        public function __construct(private OutputInterface $error_output) {
+            parent::__construct();
+        }
+
+        public function getErrorOutput(): OutputInterface {
+            return $this->error_output;
+        }
+
+        public function setErrorOutput(OutputInterface $error): void {
+            $this->error_output = $error;
+        }
+
+        public function section(): ConsoleSectionOutput {
+            throw new LogicException('Sections are not supported.');
+        }
+    };
+
+    $exit_code = Artisan::call(AuditTranslations::class, $parameters, $output);
+
+    return ['exit_code' => $exit_code, 'output' => $output->fetch(), 'error_output' => $error_output->fetch()];
 }
