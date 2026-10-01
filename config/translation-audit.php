@@ -47,4 +47,7 @@ return [
 
     // Whether to hide the progress bar while the files are scanned. The --no-progress option overrides it.
     'disable_progress_bar' => false,
+
+    // Whether to hide the result summary. The --no-summary option overrides it.
+    'disable_summary' => false,
 ];

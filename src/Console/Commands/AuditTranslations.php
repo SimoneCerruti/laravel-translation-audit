@@ -55,6 +55,7 @@ class AuditTranslations extends Command {
             {--save-name= : The name of the file to save the audit result to, without the extension. It supports the following patterns, which have to be wrapped in curly braces: - now:<format>: inserts the current date in the specified format; - random:<length>: inserts random alphanumeric characters (a-zA-Z0-9). Overrides the save_name config}
             {--display-format= : The format in which to display the audit result. Supported formats: json, list, table. Overrides the display_format config}
             {--no-progress= : Whether to hide the progress bar while the files are scanned. Accept true or false, if no value is specified it defaults to true. Overrides the disable_progress_bar config}
+            {--no-summary= : Whether to hide the result summary. Accept true or false, if no value is specified it defaults to true. Overrides the disable_summary config}
     TXT;
 
     /** @var string */
@@ -94,6 +95,8 @@ class AuditTranslations extends Command {
 
     private bool $should_disable_progress_bar = false;
 
+    private bool $should_disable_summary = false;
+
     /** @var value-of<self::SUPPORTED_SAVE_FORMATS>|null */
     private ?string $save_format = null;
 
@@ -124,6 +127,7 @@ class AuditTranslations extends Command {
             $this->ignore_keys = $this->getIgnoreKeys();
             $this->display_format = $this->getDisplayFormat();
             $this->should_disable_progress_bar = $this->options_helper->booleanOrConfig('no-progress', 'translation-audit.disable_progress_bar', false);
+            $this->should_disable_summary = $this->options_helper->booleanOrConfig('no-summary', 'translation-audit.disable_summary', false);
 
             $this->warnForHeavyPaths();
         } catch (InvalidConfigException|InvalidArgumentException $e) {
@@ -157,8 +161,11 @@ class AuditTranslations extends Command {
         }
 
         $this->printAuditResult($missing);
-        $this->newLine();
-        $this->printResultSummary($missing);
+
+        if (! $this->should_disable_summary) {
+            $this->newLine();
+            $this->printResultSummary($missing);
+        }
 
         return self::FAILURE;
     }

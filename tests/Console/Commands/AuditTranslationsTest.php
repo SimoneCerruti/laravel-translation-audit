@@ -708,3 +708,53 @@ describe('display format', function (): void {
         'config' => [fn () => config(['translation-audit.display_format' => 'unsupported_format']), []],
     ]);
 });
+
+describe('summary', function (): void {
+    beforeEach(function (): void {
+        putFile('app/Example.php', "<?php __('Hello');");
+    });
+
+    it('prints the summary by default', function (): void {
+        artisan(AuditTranslations::class)
+            ->expectsOutput('Found 1 key with missing translations in 1 file.')
+            ->assertFailed();
+    });
+
+    it('hides the summary with the no-summary option', function (?string $value): void {
+        artisan(AuditTranslations::class, ['--no-summary' => $value])
+            ->expectsOutput('    EN, IT  Hello')
+            ->doesntExpectOutputToContain('Found 1 key with missing translations')
+            ->assertFailed();
+    })->with([null, 'true']);
+
+    it('hides the summary when it is disabled in the config', function (): void {
+        config(['translation-audit.disable_summary' => true]);
+
+        artisan(AuditTranslations::class)
+            ->expectsOutput('    EN, IT  Hello')
+            ->doesntExpectOutputToContain('Found 1 key with missing translations')
+            ->assertFailed();
+    });
+
+    it('prints the summary when the no-summary option overrides the config', function (): void {
+        config(['translation-audit.disable_summary' => true]);
+
+        artisan(AuditTranslations::class, ['--no-summary' => 'false'])
+            ->expectsOutput('Found 1 key with missing translations in 1 file.')
+            ->assertFailed();
+    });
+
+    it('prints only the result with the progress bar and the summary hidden', function (): void {
+        auditAsJson(['--no-progress' => true, '--no-summary' => true])
+            ->expectsOutput(resultJson(['app/Example.php' => ['Hello' => ['en', 'it']]]))
+            ->doesntExpectOutputToContain('app/Example.php ')
+            ->doesntExpectOutputToContain('Found')
+            ->assertFailed();
+    });
+
+    it('fails when the no-summary option is not a boolean', function (): void {
+        artisan(AuditTranslations::class, ['--no-summary' => 'maybe'])
+            ->expectsOutputToContain('The --no-summary option accepts only true or false.')
+            ->assertExitCode(Command::INVALID);
+    });
+});
