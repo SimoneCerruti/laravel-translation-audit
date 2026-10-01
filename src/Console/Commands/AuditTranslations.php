@@ -18,8 +18,8 @@ use Symfony\Component\Finder\SplFileInfo;
 use TranslationAudit\Actions\DetectMissingTranslations;
 use TranslationAudit\Actions\DetectUnusedTranslations;
 use TranslationAudit\Actions\FindFilesToScan;
-use TranslationAudit\Actions\FindTranslationKeysInFile;
 use TranslationAudit\Actions\SaveAuditResult;
+use TranslationAudit\Actions\ScanFilesForTranslationKeys;
 use TranslationAudit\Data\AuditResult;
 use TranslationAudit\Data\UsedTranslationKey;
 use TranslationAudit\Enums\DisplayFormat;
@@ -178,10 +178,8 @@ class AuditTranslations extends Command {
      * @return Collection<int, UsedTranslationKey>
      */
     private function scanFiles(Collection $files): Collection {
-        $translation_keys = new Collection;
-
         if ($files->isEmpty()) {
-            return $translation_keys;
+            return new Collection;
         }
 
         $progress_output = $this->should_disable_progress_bar ? new SymfonyStyle($this->input, new NullOutput) : $this->output->getErrorStyle();
@@ -190,24 +188,16 @@ class AuditTranslations extends Command {
         $progress_bar->setMessage($this->getRelativePath($files->first()));
         $progress_bar->start();
 
-        $find_translation_keys_in_file = app(FindTranslationKeysInFile::class);
+        try {
+            $translation_keys = app(ScanFilesForTranslationKeys::class)->handle($files, function (SplFileInfo $file, int $index) use ($files, $progress_bar): void {
+                $next_file = $files->get($index + 1);
+                $progress_bar->setMessage($next_file ? $this->getRelativePath($next_file) : '');
+                $progress_bar->advance();
+            });
+        } catch (RuntimeException $e) {
+            $progress_output->newLine(2);
 
-        foreach ($files as $index => $file) {
-            $relative_path = $this->getRelativePath($file);
-
-            try {
-                foreach ($find_translation_keys_in_file->handle($file) as $key) {
-                    $translation_keys->push(new UsedTranslationKey($relative_path, $key));
-                }
-            } catch (Exception $e) {
-                $progress_output->newLine(2);
-
-                throw new RuntimeException("Unable to scan {$relative_path}: {$e->getMessage()}", $e->getCode(), previous: $e);
-            }
-
-            $next_file = $files->get($index + 1);
-            $progress_bar->setMessage($next_file ? $this->getRelativePath($next_file) : '');
-            $progress_bar->advance();
+            throw $e;
         }
 
         $progress_bar->finish();
