@@ -188,7 +188,7 @@ Each of these options overrides the matching config value for a single run:
 | Option | Config | Default | Description |
 | --- | --- | --- | --- |
 | `--save` | `always_save` | `false` | Whether to save the audit result. Accepts `true` or `false`, and means `true` when passed without a value. |
-| `--save-format` | `save_format` | `json` | The format of the saved file. Supported formats: `json`. |
+| `--save-format` | `save_format` | `SaveFormat::Json` | The format of the saved file, a `TranslationAudit\Enums\SaveFormat` case or its value in the config. Supported formats: `json`. |
 | `--save-path` | `save_path` | `storage_path('app/private/translation-audits')` | The absolute path of the directory to save the file in. The directory is created if missing. |
 | `--save-name` | `save_name` | `translation-audit-{now:d_M_Y_H_i}-{random:8}` | The file name, without the extension. |
 

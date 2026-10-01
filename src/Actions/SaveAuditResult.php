@@ -8,9 +8,9 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
-use InvalidArgumentException;
 use stdClass;
 use TranslationAudit\Data\AuditResult;
+use TranslationAudit\Enums\SaveFormat;
 
 final class SaveAuditResult {
     /**
@@ -19,13 +19,12 @@ final class SaveAuditResult {
      *
      * @return non-falsy-string The path of the saved file.
      */
-    public function handle(AuditResult $result, string $format, string $directory, string $name): string {
+    public function handle(AuditResult $result, SaveFormat $format, string $directory, string $name): string {
         $content = match ($format) {
-            'json' => $this->toJson($result),
-            default => throw new InvalidArgumentException("Unsupported save format '{$format}'."),
+            SaveFormat::Json => $this->toJson($result),
         };
 
-        $path = rtrim($directory, '/\\').DIRECTORY_SEPARATOR."{$this->resolveName($name)}.{$format}";
+        $path = rtrim($directory, '/\\').DIRECTORY_SEPARATOR."{$this->resolveName($name)}.{$format->value}";
 
         File::ensureDirectoryExists(\dirname($path));
         File::put($path, $content);

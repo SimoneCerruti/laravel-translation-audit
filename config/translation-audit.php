@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use TranslationAudit\Enums\SaveFormat;
+
 return [
     // Glob patterns, relative to the project root, of the files to scan for translation keys.
     'scan_paths' => [
@@ -30,8 +32,8 @@ return [
     // Whether to save the audit result to a file on every run, even when no translation is missing. The --save option overrides it.
     'always_save' => false,
 
-    // Format of the saved audit result. Supported formats: json. The --save-format option overrides it.
-    'save_format' => 'json',
+    // Format of the saved audit result, as a SaveFormat case or its value. Supported formats: json. The --save-format option overrides it.
+    'save_format' => SaveFormat::Json,
 
     // Absolute path of the directory where the audit result is saved, created if missing. The --save-path option overrides it.
     'save_path' => storage_path('app/private/translation-audits'),

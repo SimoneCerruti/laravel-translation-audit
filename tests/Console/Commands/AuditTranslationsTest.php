@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Support\Carbon;
 use Symfony\Component\Console\Command\Command;
 use TranslationAudit\Console\Commands\AuditTranslations;
+use TranslationAudit\Enums\SaveFormat;
 
 use function Pest\Laravel\artisan;
 use function Pest\Laravel\travelTo;
@@ -525,10 +526,21 @@ describe('saving the result', function (): void {
     });
 
     describe('--save-format option and save_format config', function (): void {
-        it('saves the result in the format given by the config', function (): void {
-            config(['translation-audit.save_format' => 'json', 'translation-audit.save_name' => 'audit']);
+        it('saves the result in the format given by the config', function (SaveFormat|string $format): void {
+            config(['translation-audit.save_format' => $format, 'translation-audit.save_name' => 'audit']);
 
             artisan(AuditTranslations::class, ['--save' => true])->assertSuccessful();
+
+            expect(getAuditSavedFiles())->toBe(['audit.json']);
+        })->with([
+            'enum case' => [SaveFormat::Json],
+            'value' => ['json'],
+        ]);
+
+        it('saves the result in the format given by the option', function (): void {
+            config(['translation-audit.save_name' => 'audit']);
+
+            artisan(AuditTranslations::class, ['--save' => true, '--save-format' => 'json'])->assertSuccessful();
 
             expect(getAuditSavedFiles())->toBe(['audit.json']);
         });

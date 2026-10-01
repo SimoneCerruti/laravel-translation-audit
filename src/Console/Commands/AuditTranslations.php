@@ -37,6 +37,7 @@ use TranslationAudit\Actions\PrintResultAsTable;
 use TranslationAudit\Actions\SaveAuditResult;
 use TranslationAudit\Data\AuditResult;
 use TranslationAudit\Data\UsedTranslationKey;
+use TranslationAudit\Enums\SaveFormat;
 use TranslationAudit\Exceptions\InvalidConfigException;
 use TranslationAudit\Support\CommandOptionHelper;
 use TranslationAudit\Support\IgnoredKeys;
@@ -68,8 +69,6 @@ class AuditTranslations extends Command {
 
     /** @var string */
     protected $description = 'Audit your app for missing or unused translations.';
-
-    private const array SUPPORTED_SAVE_FORMATS = ['json'];
 
     private const array SUPPORTED_DISPLAY_FORMATS = ['json', 'list', 'table'];
 
@@ -109,8 +108,7 @@ class AuditTranslations extends Command {
 
     private bool $should_audit_for_unused_translations = false;
 
-    /** @var value-of<self::SUPPORTED_SAVE_FORMATS>|null */
-    private ?string $save_format = null;
+    private ?SaveFormat $save_format = null;
 
     private ?string $save_directory = null;
 
@@ -493,16 +491,18 @@ class AuditTranslations extends Command {
     }
 
     /**
-     * @return value-of<self::SUPPORTED_SAVE_FORMATS>
+     * The config accepts a SaveFormat case or its value.
      *
      * @throws InvalidConfigException
      */
-    private function getSaveFormat(): string {
-        $format = $this->options_helper->nonEmptyStringOrConfig('save-format', 'translation-audit.save_format');
+    private function getSaveFormat(): SaveFormat {
+        $config = config('translation-audit.save_format');
+        $format = $this->options_helper->nonEmptyString('save-format', $config instanceof SaveFormat ? $config->value : config()->string('translation-audit.save_format'));
+        $save_format = SaveFormat::tryFrom($format);
 
-        throw_unless(\in_array($format, self::SUPPORTED_SAVE_FORMATS), InvalidConfigException::class, "Invalid save format '{$format}'. Supported formats: ".implode(', ', self::SUPPORTED_SAVE_FORMATS));
+        throw_unless($save_format instanceof SaveFormat, InvalidConfigException::class, "Invalid save format '{$format}'. Supported formats: ".implode(', ', array_column(SaveFormat::cases(), 'value')));
 
-        return $format;
+        return $save_format;
     }
 
     /**
