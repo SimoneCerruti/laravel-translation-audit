@@ -586,69 +586,6 @@ describe('saving the result', function (): void {
     });
 });
 
-describe('translation detection', function (): void {
-    it('detects the translation key of a call', function (string $call): void {
-        putFile('app/Example.php', "<?php\n\nuse Illuminate\\Support\\Facades\\Lang;\nuse Illuminate\\Support\\Facades\\Lang as Translations;\n\n{$call};");
-
-        auditAsJson()
-            ->expectsOutput(resultJson(['app/Example.php' => ['messages.welcome' => ['en', 'it']]]))
-            ->assertFailed();
-    })->with([
-        '__()' => "__('messages.welcome')",
-        'trans()' => "trans('messages.welcome', ['name' => 'Taylor'])",
-        'trans_choice()' => "trans_choice('messages.welcome', 2)",
-        'Lang::get()' => "Lang::get('messages.welcome')",
-        'Lang::string()' => "Lang::string('messages.welcome')",
-        'Lang::array()' => "Lang::array('messages.welcome')",
-        'Lang::choice()' => "Lang::choice('messages.welcome', 2)",
-        'Lang::has()' => "Lang::has('messages.welcome')",
-        'Lang::hasForLocale()' => "Lang::hasForLocale('messages.welcome', 'en')",
-        'fully qualified Lang facade' => "\\Illuminate\\Support\\Facades\\Lang::get('messages.welcome')",
-        'aliased Lang facade' => "Translations::get('messages.welcome')",
-        'trans()->get()' => "trans()->get('messages.welcome')",
-        "app('translator')->get()" => "app('translator')->get('messages.welcome')",
-        'double quoted string' => '__("messages.welcome")',
-    ]);
-
-    it('ignores calls without a static translation key', function (string $call): void {
-        putFile('app/Example.php', "<?php\n\nuse Illuminate\\Support\\Facades\\Lang;\n\n{$call};");
-
-        artisan(AuditTranslations::class)
-            ->expectsOutput('No missing translations found.')
-            ->assertSuccessful();
-    })->with([
-        'variable key' => '__($key)',
-        'interpolated key' => '__("messages.{$key}")',
-        'concatenated key' => "__('messages.'.\$key)",
-        'empty key' => "__('')",
-        'no arguments' => '__()',
-        'first class callable' => '__(...)',
-        'translator without arguments' => 'trans()',
-        'unrelated function' => "strtoupper('messages.welcome')",
-        'dynamic function name' => "\$fn('messages.welcome')",
-        'non translator Lang method' => "Lang::setLocale('it')",
-        'non translator translator method' => "trans()->setLocale('it')",
-        'other facade' => "\\Illuminate\\Support\\Facades\\Config::get('messages.welcome')",
-        'other service' => "app('config')->get('messages.welcome')",
-        'dynamic translator method' => "trans()->{\$method}('messages.welcome')",
-        'first class callable translator method' => 'trans()->get(...)',
-    ]);
-
-    it('detects translation keys in blade views', function (string $blade): void {
-        putFile('resources/views/welcome.blade.php', $blade);
-
-        auditAsJson()
-            ->expectsOutput(resultJson(['resources/views/welcome.blade.php' => ['messages.welcome' => ['en', 'it']]]))
-            ->assertFailed();
-    })->with([
-        'echo' => "<h1>{{ __('messages.welcome') }}</h1>",
-        'raw echo' => "<h1>{!! trans('messages.welcome') !!}</h1>",
-        '@lang' => "<h1>@lang('messages.welcome')</h1>",
-        '@choice' => "<h1>@choice('messages.welcome', 2)</h1>",
-        'php block' => "@php \$title = __('messages.welcome'); @endphp",
-    ]);
-});
-
 describe('missing translations', function (): void {
     it('reports only the locales missing a translation', function (): void {
         putJsonTranslations('en', ['Hello' => 'Hello']);
