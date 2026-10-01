@@ -64,7 +64,9 @@ The command lists the keys with missing translations grouped by file, each prece
 Found 3 keys with missing translations in 2 files.
 ```
 
-While the files are scanned, a progress bar shows the file being scanned. The progress bar is printed on the error output, so redirecting the standard output, like `php artisan translation:audit > result.txt`, captures only the result and the summary.
+While the files are scanned, a progress bar shows the file being scanned.
+
+The result is printed on the standard output, while the progress bar, the summary, the messages and the errors are printed on the error output. Redirecting or piping the standard output, like `php artisan translation:audit > result.txt` or `php artisan translation:audit --display-format=json | jq`, captures only the result, while everything else is still displayed in the terminal. When no translation is missing, the standard output is empty, or `{}` with the `json` display format.
 
 The command exits with a non-zero status code when it finds missing translations, so it can be used to fail a CI pipeline.
 
@@ -76,7 +78,7 @@ The result is printed as a list by default. Pass `--display-format`, or set `dis
 | --- | --- |
 | `list` | The keys grouped by file, each preceded by the locales it is missing in. Long keys wrap to the width of the terminal. |
 | `table` | A row for each key, with a section for each file. |
-| `json` | The missing locales of each key, grouped by file, as JSON on a single line. |
+| `json` | The missing locales of each key, grouped by file, as JSON on a single line, or `{}` when no translation is missing. |
 
 ```bash
 php artisan translation:audit --display-format=json
@@ -98,9 +100,11 @@ php artisan translation:audit --no-progress --no-summary
 
 To always hide them, set `disable_progress_bar` or `disable_summary` to `true` in the config file. Both options accept `true` or `false`, mean `true` when passed without a value, and override the config for a single run, so `--no-summary=false` prints the summary even when the config hides it.
 
+The progress bar is shown only when the error output is a terminal, so it is hidden in CI, in agents and when the error output is redirected, whatever the option and the config. Pass `--ansi` to show it anyway, or set the `NO_COLOR` environment variable to hide it in a terminal too.
+
 ### Running the Audit from an AI Agent
 
-Pass `--for-agent` when the audit is run by an AI agent or by a script that parses its output. The command prints only the JSON result, on a single line, and prints `{}` when no translation is missing:
+Pass `--for-agent` when the audit is run by an AI agent or by a script that parses its output. The command prints only the JSON result on the standard output, on a single line, and `{}` when no translation is missing:
 
 ```bash
 php artisan translation:audit --for-agent
@@ -110,7 +114,7 @@ php artisan translation:audit --for-agent
 {"app/Http/Controllers/HomeController.php":{"auth.failed":["it"],"messages.welcome":["en","it"]}}
 ```
 
-It is a shortcut for `--display-format=json --no-progress --no-summary`, and it takes precedence over these options and their configs. It also hides the warnings about heavy scan paths and the path of the saved file, so the output is always valid JSON. Errors are still printed, and the exit code stays the same: non-zero when translations are missing or the audit fails.
+It is a shortcut for `--display-format=json --no-progress --no-summary`, and it takes precedence over these options and their configs. It also hides the messages on the error output, like the warnings about heavy scan paths and the path of the saved file, so the output is valid JSON even for agents that merge the standard and error outputs. Errors are still printed on the error output, and the exit code stays the same: non-zero when translations are missing or the audit fails.
 
 ### Ignoring Keys
 
@@ -143,7 +147,7 @@ Pass `--save` to write the audit result to a file, or set `always_save` to `true
 php artisan translation:audit --save
 ```
 
-The result is saved even when no translation is missing, and the command prints the path of the saved file. By default it lands in `storage/app/private/translation-audits`, in a file named like `translation-audit-30_Sep_2026_18_30-aB3dE9fG.json`.
+The result is saved even when no translation is missing, and the command prints the path of the saved file on the error output. By default it lands in `storage/app/private/translation-audits`, in a file named like `translation-audit-30_Sep_2026_18_30-aB3dE9fG.json`.
 
 The saved JSON lists, for each scanned file, the keys with missing translations and the locales they are missing in. It is an empty array when nothing is missing:
 
