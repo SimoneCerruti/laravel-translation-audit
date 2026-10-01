@@ -36,7 +36,7 @@ describe('configuration', function (): void {
         artisan(AuditTranslations::class)
             ->expectsOutputToContain("The \"{$key}\" config must be an array.")
             ->assertExitCode(Command::INVALID);
-    })->with(['scan_paths', 'ignore_paths', 'ignore_links', 'ignore_locales', 'supported_locales']);
+    })->with(['scan_paths', 'ignore_paths', 'ignore_links', 'ignore_locales', 'supported_locales', 'unused_ignore_paths']);
 
     it('fails when a config value contains something other than non-empty strings', function (string $key, mixed $value): void {
         config(["translation-audit.{$key}" => ['en', $value]]);
@@ -44,7 +44,7 @@ describe('configuration', function (): void {
         artisan(AuditTranslations::class)
             ->expectsOutputToContain("The \"{$key}\" config must contain only non-empty strings.")
             ->assertExitCode(Command::INVALID);
-    })->with(['scan_paths', 'ignore_paths', 'ignore_links', 'ignore_locales', 'supported_locales'])->with([
+    })->with(['scan_paths', 'ignore_paths', 'ignore_links', 'ignore_locales', 'supported_locales', 'unused_ignore_paths'])->with([
         'empty string' => '',
         'integer' => 1,
         'null' => null,
@@ -426,9 +426,11 @@ describe('saving the result', function (): void {
             expect($files)->toHaveCount(1)
                 ->and($files[0])->toMatch('/^translation-audit-30_Sep_2026_18_30-[a-zA-Z0-9]{8}\.json$/')
                 ->and(getFirstAuditSaveFileJsonContent())->toBe([
-                    'app/Example.php' => [
-                        'Hello' => ['en'],
-                        'messages.welcome' => ['en', 'it'],
+                    'missing' => [
+                        'app/Example.php' => [
+                            'Hello' => ['en'],
+                            'messages.welcome' => ['en', 'it'],
+                        ],
                     ],
                 ]);
         });
@@ -440,7 +442,7 @@ describe('saving the result', function (): void {
                 ->assertSuccessful();
 
             expect(getAuditSavedFiles())->toHaveCount(1)
-                ->and(getFirstAuditSaveFileJsonContent())->toBe([]);
+                ->and(getFirstAuditSaveFileJsonContent())->toBe(['missing' => []]);
         });
 
         it('does not save the result when the option overrides the config', function (mixed $value): void {
@@ -681,10 +683,144 @@ describe('missing translations', function (): void {
     });
 });
 
+describe('unused translations', function (): void {
+    beforeEach(function (): void {
+        putJsonTranslations('en', ['Hello' => 'Hello', 'Bye' => 'Bye']);
+        putJsonTranslations('it', ['Hello' => 'Ciao']);
+        putFile('lang/it/messages.php', "<?php return ['welcome' => 'Benvenuto', 'old' => 'Vecchio', 'nested' => ['used' => 'Usato', 'unused' => 'Inutilizzato', 'empty' => []]];");
+        putFile('lang/it/admin/users.php', "<?php return ['title' => 'Utenti'];");
+        putFile('lang/it/validation.php', "<?php return ['required' => 'Obbligatorio'];");
+        putFile('app/Example.php', "<?php __('Hello'); __('messages.welcome'); __('messages.nested.used');");
+    });
+
+    it('does not audit the unused translations by default', function (): void {
+        auditAsJson()
+            ->expectsOutput(resultJson(['app/Example.php' => ['messages.welcome' => ['en'], 'messages.nested.used' => ['en']]]))
+            ->doesntExpectOutputToContain('unused')
+            ->assertFailed();
+    });
+
+    it('reports the unused translations grouped by locale and translation file', function (?string $value): void {
+        auditAsJson(['--unused' => $value])
+            ->expectsOutput(resultJson(
+                ['app/Example.php' => ['messages.welcome' => ['en'], 'messages.nested.used' => ['en']]],
+                [
+                    'en' => ['lang/en.json' => ['Bye' => 'Bye']],
+                    'it' => [
+                        'lang/it/admin/users.php' => ['admin/users.title' => 'Utenti'],
+                        'lang/it/messages.php' => ['messages.old' => 'Vecchio', 'messages.nested.unused' => 'Inutilizzato'],
+                    ],
+                ],
+            ))
+            ->assertFailed();
+    })->with([null, 'true']);
+
+    it('reports the unused translations when enabled in the config', function (): void {
+        config(['translation-audit.audit_unused' => true]);
+
+        auditAsJson()
+            ->expectsOutputToContain('"unused":{"en":{"lang/en.json":{"Bye":"Bye"}}')
+            ->assertFailed();
+    });
+
+    it('does not audit the unused translations when the option overrides the config', function (): void {
+        config(['translation-audit.audit_unused' => true]);
+
+        auditAsJson(['--unused' => 'false'])
+            ->doesntExpectOutputToContain('unused')
+            ->assertFailed();
+    });
+
+    it('fails when only unused translations are found', function (): void {
+        putJsonTranslations('en', ['Hello' => 'Hello']);
+        putFile('lang/en/messages.php', "<?php return ['welcome' => 'Welcome', 'nested' => ['used' => 'Used']];");
+        config(['translation-audit.supported_locales' => ['en']]);
+
+        auditAsJson(['--unused' => true])
+            ->expectsOutput(resultJson([], []))
+            ->expectsOutput('No missing or unused translations found.')
+            ->assertSuccessful();
+
+        putJsonTranslations('en', ['Hello' => 'Hello', 'Bye' => 'Bye']);
+
+        auditAsJson(['--unused' => true])
+            ->expectsOutput(resultJson([], ['en' => ['lang/en.json' => ['Bye' => 'Bye']]]))
+            ->expectsOutput('Found 1 unused key in 1 translation file.')
+            ->doesntExpectOutputToContain('missing translations in')
+            ->assertFailed();
+    });
+
+    it('does not report the translations of the files matching the unused ignore paths', function (): void {
+        config(['translation-audit.unused_ignore_paths' => ['lang/*/messages.php', 'lang/*/admin/*.php', 'lang/*/validation.php', 'lang/en.json']]);
+
+        auditAsJson(['--unused' => true])
+            ->expectsOutputToContain('"unused":{}')
+            ->assertFailed();
+    });
+
+    it('reports the translations of the files Laravel uses when they are not ignored', function (): void {
+        config(['translation-audit.unused_ignore_paths' => []]);
+
+        auditAsJson(['--unused' => true])
+            ->expectsOutputToContain('"lang/it/validation.php":{"validation.required":"Obbligatorio"}')
+            ->assertFailed();
+    });
+
+    it('does not report the ignored locales and keys', function (): void {
+        config(['translation-audit.ignore_locales' => ['en'], 'translation-audit.ignore_keys' => ['messages.old', 'admin/users.title' => ['it']]]);
+
+        auditAsJson(['--unused' => true])
+            ->expectsOutputToContain('"unused":{"it":{"lang/it/messages.php":{"messages.nested.unused":"Inutilizzato"}}}')
+            ->assertFailed();
+    });
+
+    it('prints the unused translations in every display format', function (string $format, string $output): void {
+        artisan(AuditTranslations::class, ['--unused' => true, '--display-format' => $format])
+            ->expectsOutputToContain($output)
+            ->assertFailed();
+    })->with([
+        'list' => ['list', 'Unused translations'],
+        'table' => ['table', '| IT     | lang/it/admin/users.php | admin/users.title      |'],
+    ]);
+
+    it('summarizes the missing and the unused translations', function (): void {
+        artisan(AuditTranslations::class, ['--unused' => true])
+            ->expectsOutput('Found 2 keys with missing translations in 1 file.')
+            ->expectsOutput('Found 4 unused keys in 3 translation files.')
+            ->assertFailed();
+    });
+
+    it('saves the unused translations', function (): void {
+        config(['translation-audit.save_path' => base_path('audits')]);
+
+        artisan(AuditTranslations::class, ['--unused' => true, '--save' => true])->assertFailed();
+
+        expect(getFirstAuditSaveFileJsonContent())->toHaveKey('unused.en', ['lang/en.json' => ['Bye' => 'Bye']]);
+    });
+
+    it('fails naming the translation file that cannot be read', function (string $path, string $contents, string $error): void {
+        putFile('app/Example.php', '<?php');
+        putFile($path, $contents);
+
+        artisan(AuditTranslations::class, ['--unused' => true])
+            ->expectsOutputToContain("Unable to read {$path}: {$error}")
+            ->assertFailed();
+    })->with([
+        'invalid json' => ['lang/en.json', '{', 'Syntax error'],
+        'invalid php' => ['lang/en/broken.php', '<?php return [', "Unclosed '['"],
+    ]);
+
+    it('fails when the unused option is not a boolean', function (): void {
+        artisan(AuditTranslations::class, ['--unused' => 'maybe'])
+            ->expectsOutputToContain('The --unused option accepts only true or false.')
+            ->assertExitCode(Command::INVALID);
+    });
+});
+
 dataset('display formats', [
     'list' => ['list', 'EN, IT  Hello'],
     'table' => ['table', '| app/Example.php | Hello | EN, IT          |'],
-    'json' => ['json', '{"app/Example.php":{"Hello":["en","it"]}}'],
+    'json' => ['json', '{"missing":{"app/Example.php":{"Hello":["en","it"]}}}'],
 ]);
 
 describe('display format', function (): void {
@@ -746,7 +882,7 @@ describe('agent output', function (): void {
         putFile('lang/en.json', '{"Hello": "Hello"}');
 
         artisan(AuditTranslations::class, ['--for-agent' => true])
-            ->expectsOutput('{}')
+            ->expectsOutput(resultJson([]))
             ->doesntExpectOutputToContain('No missing translations found.')
             ->assertSuccessful();
     });
@@ -756,7 +892,7 @@ describe('agent output', function (): void {
         putFile('lang/en.json', '{"Hello": "Hello"}');
 
         artisan(AuditTranslations::class, ['--for-agent' => true, '--ansi' => true])
-            ->expectsOutput('{}')
+            ->expectsOutput(resultJson([]))
             ->assertSuccessful();
     });
 
@@ -769,7 +905,7 @@ describe('agent output', function (): void {
             ->assertFailed();
 
         expect(getAuditSavedFiles())->toHaveCount(1)
-            ->and(getFirstAuditSaveFileJsonContent())->toBe(['app/Example.php' => ['Hello' => ['en', 'it']]]);
+            ->and(getFirstAuditSaveFileJsonContent())->toBe(['missing' => ['app/Example.php' => ['Hello' => ['en', 'it']]]]);
     });
 
     it('saves an empty result printing only the empty json object', function (): void {
@@ -777,12 +913,12 @@ describe('agent output', function (): void {
         putFile('lang/en.json', '{"Hello": "Hello"}');
 
         artisan(AuditTranslations::class, ['--for-agent' => true, '--save' => true])
-            ->expectsOutput('{}')
+            ->expectsOutput(resultJson([]))
             ->doesntExpectOutputToContain('Audit result saved')
             ->assertSuccessful();
 
         expect(getAuditSavedFiles())->toHaveCount(1)
-            ->and(getFirstAuditSaveFileJsonContent())->toBe([]);
+            ->and(getFirstAuditSaveFileJsonContent())->toBe(['missing' => []]);
     });
 
     it('does not warn when a heavy path is set for scan', function (): void {
@@ -908,7 +1044,7 @@ describe('output streams', function (): void {
         $output = auditWithSeparateOutputs(['--display-format' => 'json']);
 
         expect($output['exit_code'])->toBe(Command::SUCCESS)
-            ->and($output['output'])->toBe('{}'.PHP_EOL)
+            ->and($output['output'])->toBe(resultJson([]).PHP_EOL)
             ->and($output['error_output'])->toBe('No missing translations found.'.PHP_EOL);
     });
 

@@ -12,7 +12,7 @@
 
 Audit your app for missing or unused translations.
 
-Laravel Translation Audit scans your PHP files and Blade views for translation calls such as `__()`, `trans()`, `trans_choice()`, `@lang`, and `Lang::get()`. It then checks that every key it finds has a translation in each of your app's locales. The locales are detected automatically from your `lang` folder, or you can list them in the config file.
+Laravel Translation Audit scans your PHP files and Blade views for translation calls such as `__()`, `trans()`, `trans_choice()`, `@lang`, and `Lang::get()`. It then checks that every key it finds has a translation in each of your app's locales, and optionally that every translation in your `lang` folder is used. The locales are detected automatically from your `lang` folder, or you can list them in the config file.
 
 ## Installation
 
@@ -66,9 +66,9 @@ Found 3 keys with missing translations in 2 files.
 
 While the files are scanned, a progress bar shows the file being scanned.
 
-The result is printed on the standard output, while the progress bar, the summary, the messages and the errors are printed on the error output. Redirecting or piping the standard output, like `php artisan translation:audit > result.txt` or `php artisan translation:audit --display-format=json | jq`, captures only the result, while everything else is still displayed in the terminal. When no translation is missing, the standard output is empty, or `{}` with the `json` display format.
+The result is printed on the standard output, while the progress bar, the summary, the messages and the errors are printed on the error output. Redirecting or piping the standard output, like `php artisan translation:audit > result.txt` or `php artisan translation:audit --display-format=json | jq`, captures only the result, while everything else is still displayed in the terminal. When no translation is missing, the standard output is empty, or `{"missing":{}}` with the `json` display format.
 
-The command exits with a non-zero status code when it finds missing translations, so it can be used to fail a CI pipeline.
+The command exits with a non-zero status code when it finds missing translations, or unused ones when they are audited, so it can be used to fail a CI pipeline.
 
 ### Choosing the Display Format
 
@@ -78,14 +78,14 @@ The result is printed as a list by default. Pass `--display-format`, or set `dis
 | --- | --- |
 | `list` | The keys grouped by file, each preceded by the locales it is missing in. Long keys wrap to the width of the terminal. |
 | `table` | A row for each key, with a section for each file. |
-| `json` | The missing locales of each key, grouped by file, as JSON on a single line, or `{}` when no translation is missing. |
+| `json` | The missing locales of each key, grouped by file, under the `missing` key as JSON on a single line. It is `{"missing":{}}` when no translation is missing. |
 
 ```bash
 php artisan translation:audit --display-format=json
 ```
 
 ```json
-{"app/Http/Controllers/HomeController.php":{"auth.failed":["it"],"messages.welcome":["en","it"]},"resources/views/welcome.blade.php":{"Welcome back!":["it"]}}
+{"missing":{"app/Http/Controllers/HomeController.php":{"auth.failed":["it"],"messages.welcome":["en","it"]},"resources/views/welcome.blade.php":{"Welcome back!":["it"]}}}
 ```
 
 Every format is followed by a summary, like `Found 3 keys with missing translations in 2 files.`
@@ -104,17 +104,37 @@ The progress bar is shown only when the error output is a terminal, so it is hid
 
 ### Running the Audit from an AI Agent
 
-Pass `--for-agent` when the audit is run by an AI agent or by a script that parses its output. The command prints only the JSON result on the standard output, on a single line, and `{}` when no translation is missing:
+Pass `--for-agent` when the audit is run by an AI agent or by a script that parses its output. The command prints only the JSON result on the standard output, on a single line, and `{"missing":{}}` when no translation is missing:
 
 ```bash
 php artisan translation:audit --for-agent
 ```
 
 ```json
-{"app/Http/Controllers/HomeController.php":{"auth.failed":["it"],"messages.welcome":["en","it"]}}
+{"missing":{"app/Http/Controllers/HomeController.php":{"auth.failed":["it"],"messages.welcome":["en","it"]}}}
 ```
 
 It is a shortcut for `--display-format=json --no-progress --no-summary`, and it takes precedence over these options and their configs. It also hides the messages on the error output, like the warnings about heavy scan paths and the path of the saved file, so the output is valid JSON even for agents that merge the standard and error outputs. Errors are still printed on the error output, and the exit code stays the same: non-zero when translations are missing or the audit fails.
+
+### Finding Unused Translations
+
+Pass `--unused` to also report the translations defined in your `lang` folder but used in none of the scanned files, or set `audit_unused` to `true` in the config file to report them on every run:
+
+```bash
+php artisan translation:audit --unused
+```
+
+The option accepts `true` or `false`, means `true` when passed without a value, and overrides the config for a single run. Both the JSON files, like `lang/it.json`, and the PHP files, like `lang/it/messages.php`, are audited, with the keys of the PHP files prefixed by their group, like `messages.welcome`.
+
+The `list` and `table` formats print the missing and the unused translations under their own headings, with the unused keys grouped by locale and then by translation file. The `json` format adds them under the `unused` key, with their translation:
+
+```json
+{"missing":{"app/Http/Controllers/HomeController.php":{"auth.failed":["it"]}},"unused":{"it":{"lang/it.json":{"Goodbye":"Arrivederci"},"lang/it/messages.php":{"messages.old":"Vecchio"}}}}
+```
+
+The summary then also counts the unused keys, like `Found 2 unused keys in 2 translation files.`
+
+The translation files matching the `unused_ignore_paths` glob patterns in the config file, relative to the project root, are left out of this audit. By default they are the `auth.php`, `pagination.php`, `passwords.php` and `validation.php` files, whose keys Laravel itself uses. The ignored locales and keys are left out as well.
 
 ### Ignoring Keys
 
@@ -149,12 +169,14 @@ php artisan translation:audit --save
 
 The result is saved even when no translation is missing, and the command prints the path of the saved file on the error output. By default it lands in `storage/app/private/translation-audits`, in a file named like `translation-audit-30_Sep_2026_18_30-aB3dE9fG.json`.
 
-The saved JSON lists, for each scanned file, the keys with missing translations and the locales they are missing in. It is an empty array when nothing is missing:
+The saved JSON has the same shape as the `json` display format: under the `missing` key it lists, for each scanned file, the keys with missing translations and the locales they are missing in, and under the `unused` key the unused translations when they are audited. It is `{"missing": {}}` when nothing is missing:
 
 ```json
 {
-    "app/Http/Controllers/HomeController.php": {
-        "messages.welcome": ["it", "fr"]
+    "missing": {
+        "app/Http/Controllers/HomeController.php": {
+            "messages.welcome": ["it", "fr"]
+        }
     }
 }
 ```

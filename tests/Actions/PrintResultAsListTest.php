@@ -5,13 +5,13 @@ declare(strict_types=1);
 use Symfony\Component\Console\Output\BufferedOutput;
 use TranslationAudit\Actions\PrintResultAsList;
 
-function printResultAsList(array $missing, int $columns = 80): string {
+function printResultAsList(array $missing, int $columns = 80, ?array $unused = null): string {
     $output = new BufferedOutput;
 
     putenv("COLUMNS={$columns}");
 
     try {
-        app(PrintResultAsList::class)->handle($missing, $output);
+        app(PrintResultAsList::class)->handle(['missing' => $missing, ...($unused === null ? [] : ['unused' => $unused])], $output);
     } finally {
         putenv('COLUMNS');
     }
@@ -59,4 +59,54 @@ it('prints the keys and files containing console tags verbatim', function (): vo
 
 it('prints numeric keys', function (): void {
     expect(printResultAsList(['app/Example.php' => [404 => ['en']]]))->toContain('    EN  404');
+});
+
+it('prints the missing and the unused translations under their headings', function (): void {
+    expect(printResultAsList(
+        ['app/Example.php' => ['Hello' => ['it']]],
+        unused: [
+            'en' => ['lang/en/messages.php' => ['messages.old' => 'Old']],
+            'it' => ['lang/it.json' => ['Bye' => 'Ciao'], 'lang/it/messages.php' => ['messages.old' => 'Vecchio', 'messages.older' => 'Più vecchio']],
+        ],
+    ))->toBe(<<<'TXT'
+        Missing translations
+
+          app/Example.php
+            IT  Hello
+
+        Unused translations
+
+          EN
+            lang/en/messages.php
+              messages.old
+
+          IT
+            lang/it.json
+              Bye
+            lang/it/messages.php
+              messages.old
+              messages.older
+
+        TXT);
+});
+
+it('prints only the heading of the non-empty section', function (array $missing, array $unused, string $heading, string $other_heading): void {
+    expect(printResultAsList($missing, unused: $unused))->toStartWith($heading)
+        ->not->toContain($other_heading);
+})->with([
+    'only missing' => [['app/Example.php' => ['Hello' => ['it']]], [], 'Missing translations', 'Unused translations'],
+    'only unused' => [[], ['it' => ['lang/it.json' => ['Bye' => 'Ciao']]], 'Unused translations', 'Missing translations'],
+]);
+
+it('wraps the long unused keys aligned under the key column', function (): void {
+    expect(printResultAsList([], columns: 40, unused: ['en' => ['lang/en.json' => ['Welcome back! Please sign in to continue.' => 'Welcome back! Please sign in to continue.']]]))
+        ->toContain(<<<'TXT'
+                  Welcome back! Please sign in to
+                  continue.
+            TXT);
+});
+
+it('prints the unused keys and files containing console tags verbatim', function (): void {
+    expect(printResultAsList([], unused: ['en' => ['lang/<info>.json' => ['<error>Hello</error>' => 'Hello']]]))
+        ->toContain("    lang/<info>.json\n      <error>Hello</error>\n");
 });

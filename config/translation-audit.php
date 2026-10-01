@@ -50,4 +50,15 @@ return [
 
     // Whether to hide the result summary. The --no-summary option overrides it.
     'disable_summary' => false,
+
+    // Whether to also audit for unused translations, defined in the "lang" folder but used in none of the scanned files. The --unused option overrides it.
+    'audit_unused' => false,
+
+    // Glob patterns, relative to the project root, of the translation files to leave out of the unused audit. By default the files whose keys Laravel itself uses.
+    'unused_ignore_paths' => [
+        'lang/*/auth.php',
+        'lang/*/pagination.php',
+        'lang/*/passwords.php',
+        'lang/*/validation.php',
+    ],
 ];

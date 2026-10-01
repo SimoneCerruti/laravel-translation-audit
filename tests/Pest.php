@@ -100,12 +100,20 @@ function auditAsJson(array $parameters = []): PendingCommand {
 }
 
 /**
- * Encode the missing locales of each key, grouped by file, as the json display format prints them.
+ * Encode the result as the json display format prints it: the missing locales of each key grouped by file,
+ * and the unused keys grouped by locale and translation file only when given.
  *
  * @param  array<string, array<string, list<string>>>  $missing
+ * @param  array<string, array<string, array<string, string>>>|null  $unused
  */
-function resultJson(array $missing): string {
-    return json_encode($missing, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+function resultJson(array $missing, ?array $unused = null): string {
+    $result = ['missing' => $missing === [] ? new stdClass : $missing];
+
+    if ($unused !== null) {
+        $result['unused'] = $unused === [] ? new stdClass : $unused;
+    }
+
+    return json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
 }
 
 /**

@@ -11,15 +11,50 @@ use Symfony\Component\Console\Output\OutputInterface;
 use TranslationAudit\Console\Commands\AuditTranslations;
 
 /**
+ * @phpstan-import-type AuditResult from AuditTranslations
  * @phpstan-import-type MissingTranslations from AuditTranslations
+ * @phpstan-import-type UnusedTranslations from AuditTranslations
  */
 final readonly class PrintResultAsTable {
     public function __construct(private FormatLocales $format_locales) {}
 
     /**
-     * @param  MissingTranslations&non-empty-array  $missing
+     * Print the missing translations, preceded by a heading and followed by the unused ones when they are audited.
+     *
+     * @param  AuditResult  $result
      */
-    public function handle(array $missing, OutputInterface $output): void {
+    public function handle(array $result, OutputInterface $output): void {
+        if (! \array_key_exists('unused', $result)) {
+            $this->printMissing($result['missing'], $output);
+
+            return;
+        }
+
+        if ($result['missing'] !== []) {
+            $output->writeln('<options=bold>Missing translations</>');
+            $output->writeln('');
+            $this->printMissing($result['missing'], $output);
+        }
+
+        if ($result['unused'] !== []) {
+            if ($result['missing'] !== []) {
+                $output->writeln('');
+            }
+
+            $output->writeln('<options=bold>Unused translations</>');
+            $output->writeln('');
+            $this->printUnused($result['unused'], $output);
+        }
+    }
+
+    /**
+     * @param  MissingTranslations  $missing
+     */
+    private function printMissing(array $missing, OutputInterface $output): void {
+        if ($missing === []) {
+            return;
+        }
+
         $rows = [];
 
         foreach ($missing as $file_path => $keys) {
@@ -42,6 +77,41 @@ final readonly class PrintResultAsTable {
 
         new Table($output)
             ->setHeaders(['File', 'Key', 'Missing locales'])
+            ->setRows($rows)
+            ->render();
+    }
+
+    /**
+     * @param  UnusedTranslations  $unused
+     */
+    private function printUnused(array $unused, OutputInterface $output): void {
+        $rows = [];
+
+        foreach ($unused as $locale => $files) {
+            if ($rows !== []) {
+                $rows[] = new TableSeparator;
+            }
+
+            $is_first_locale_row = true;
+
+            foreach ($files as $file_path => $keys) {
+                $is_first_file_row = true;
+
+                foreach (array_keys($keys) as $key) {
+                    $rows[] = [
+                        $is_first_locale_row ? $this->format_locales->handle([(string) $locale]) : '',
+                        $is_first_file_row ? OutputFormatter::escape((string) $file_path) : '',
+                        OutputFormatter::escape((string) $key),
+                    ];
+
+                    $is_first_locale_row = false;
+                    $is_first_file_row = false;
+                }
+            }
+        }
+
+        new Table($output)
+            ->setHeaders(['Locale', 'Translation file', 'Unused key'])
             ->setRows($rows)
             ->render();
     }
