@@ -27,10 +27,10 @@ use RuntimeException;
 use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Finder\Finder;
-use Symfony\Component\Finder\Glob;
 use Symfony\Component\Finder\SplFileInfo;
 use TranslationAudit\Actions\DetectMissingTranslations;
 use TranslationAudit\Actions\DetectUnusedTranslations;
+use TranslationAudit\Actions\FindFilesToScan;
 use TranslationAudit\Actions\SaveAuditResult;
 use TranslationAudit\Data\AuditResult;
 use TranslationAudit\Data\UsedTranslationKey;
@@ -41,7 +41,6 @@ use TranslationAudit\Support\CommandOptionHelper;
 use TranslationAudit\Support\IgnoredKeys;
 
 use function Safe\file_get_contents;
-use function Safe\preg_match;
 
 /**
  * The missing locales of each translation key, grouped by the path of the file using the key.
@@ -155,7 +154,8 @@ class AuditTranslations extends Command {
     }
 
     private function audit(): int {
-        $translation_keys = $this->scanFiles($this->getFilesToAudit());
+        $files = app(FindFilesToScan::class)->handle($this->scan_paths, $this->ignore_paths, $this->should_follow_links, $this->ignore_links);
+        $translation_keys = $this->scanFiles($files);
 
         $locales = array_diff($this->supported_locales, $this->ignore_locales);
         $result = new AuditResult(app(DetectMissingTranslations::class)->handle($translation_keys, $locales, $this->ignore_keys));
@@ -265,35 +265,6 @@ class AuditTranslations extends Command {
                 Str::plural('file', $files_count),
             ), 'error');
         }
-    }
-
-    /** @return Collection<int, SplFileInfo> */
-    private function getFilesToAudit(): Collection {
-        $finder = Finder::create()->files()->in(base_path());
-
-        if ($this->should_follow_links) {
-            $finder->followLinks()->filter($this->isNotIgnoredLink(...), prune: true);
-        }
-
-        foreach ($this->scan_paths as $scan_path) {
-            $finder->path(Glob::toRegex($scan_path));
-        }
-
-        foreach ($this->ignore_paths as $ignore_path) {
-            $finder->notPath(Glob::toRegex($ignore_path));
-        }
-
-        return collect($finder->sortByName())->values();
-    }
-
-    private function isNotIgnoredLink(SplFileInfo $file): bool {
-        if (! $file->isLink()) {
-            return true;
-        }
-
-        $relative_path = $this->getRelativePath($file);
-
-        return array_all($this->ignore_links, fn (string $ignore_link): bool => preg_match(Glob::toRegex($ignore_link), $relative_path) !== 1);
     }
 
     /** The file path relative to the project root, with forward slashes on every OS. */
