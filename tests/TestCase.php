@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Lang;
 use Laravel\AgentDetector\AgentDetector;
 use Orchestra\Testbench\TestCase as Orchestra;
+use ReflectionClassConstant;
 use TranslationAudit\TranslationAuditServiceProvider;
 
 abstract class TestCase extends Orchestra {
@@ -45,9 +46,18 @@ abstract class TestCase extends Orchestra {
         parent::tearDown();
     }
 
-    /** @return list<string> */
+    /**
+     * The constant listing the known agent variables is read through reflection
+     * because it is protected in the versions before laravel/agent-detector v2.0.2.
+     * This caused CI test with prefer-lowest to fail.
+     *
+     * @return list<string>
+     */
     private function agentEnvironmentVariables(): array {
-        return ['AI_AGENT', 'CLAUDE_CODE_IS_COWORK', ...array_keys(AgentDetector::AGENT_ENV_VARS)];
+        /** @var array<string, mixed> $known_agent_variables */
+        $known_agent_variables = new ReflectionClassConstant(AgentDetector::class, 'AGENT_ENV_VARS')->getValue();
+
+        return ['AI_AGENT', 'CLAUDE_CODE_IS_COWORK', ...array_keys($known_agent_variables)];
     }
 
     private function clearAgentEnvironment(): void {
