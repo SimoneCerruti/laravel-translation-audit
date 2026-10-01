@@ -2,6 +2,14 @@
 
 ## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.5.0...HEAD)
 
+### Enhancements
+
+- Accept the `TranslationAudit\Enums\SaveFormat` and `TranslationAudit\Enums\DisplayFormat` cases in the `save_format` and `display_format` config, which now default to `SaveFormat::Json` and `DisplayFormat::List`. The string values keep working, so published config files need no change.
+
+### Maintenance
+
+- Split the audit command into single-purpose actions for finding and scanning the files, detecting the locales and the missing and unused translations, saving and printing the result, with a common `ResultPrinter` contract for the printers.
+
 ## [v0.5.0](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.4.0...v0.5.0) - 2026-10-01
 
 ### Breaking Changes
