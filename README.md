@@ -72,7 +72,7 @@ The command exits with a non-zero status code when it finds missing translations
 
 ### Choosing the Display Format
 
-The result is printed as a list by default. Pass `--display-format`, or set `display_format` in the config file, to print it in another format. The option overrides the config for a single run.
+The result is printed as a list by default. Pass `--display-format`, or set `display_format` in the config file to a `TranslationAudit\Enums\DisplayFormat` case or its value, to print it in another format. The option overrides the config for a single run.
 
 | Format | Description |
 | --- | --- |

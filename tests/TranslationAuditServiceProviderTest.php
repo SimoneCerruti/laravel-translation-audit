@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\ServiceProvider;
 use TranslationAudit\Console\Commands\AuditTranslations;
+use TranslationAudit\Enums\DisplayFormat;
 use TranslationAudit\Enums\SaveFormat;
 use TranslationAudit\TranslationAuditServiceProvider;
 
@@ -19,7 +20,7 @@ it('merges the package config', function (): void {
         ->and(config('translation-audit.save_format'))->toBe(SaveFormat::Json)
         ->and(str_replace('\\', '/', config('translation-audit.save_path')))->toEndWith('/storage/app/private/translation-audits')
         ->and(config('translation-audit.save_name'))->toBe('translation-audit-{now:d_M_Y_H_i}-{random:8}')
-        ->and(config('translation-audit.display_format'))->toBe('list')
+        ->and(config('translation-audit.display_format'))->toBe(DisplayFormat::List)
         ->and(config('translation-audit.audit_unused'))->toBeFalse()
         ->and(config('translation-audit.unused_ignore_paths'))->toBe(['lang/*/auth.php', 'lang/*/pagination.php', 'lang/*/passwords.php', 'lang/*/validation.php']);
 });

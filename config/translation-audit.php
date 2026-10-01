@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use TranslationAudit\Enums\DisplayFormat;
 use TranslationAudit\Enums\SaveFormat;
 
 return [
@@ -44,8 +45,8 @@ return [
     // Translation keys to leave out of the audit. A plain key is ignored for every locale, a key mapped to a list of locales only for those locales, e.g. ['Hello', 'Hi' => ['en']].
     'ignore_keys' => [],
 
-    // Format in which the audit result is displayed in the console. Supported formats: json, list, table. The --display-format option overrides it.
-    'display_format' => 'list',
+    // Format in which the audit result is displayed in the console, as a DisplayFormat case or its value. Supported formats: json, list, table. The --display-format option overrides it.
+    'display_format' => DisplayFormat::List,
 
     // Whether to hide the progress bar while the files are scanned. The --no-progress option overrides it.
     'disable_progress_bar' => false,

@@ -37,6 +37,7 @@ use TranslationAudit\Actions\PrintResultAsTable;
 use TranslationAudit\Actions\SaveAuditResult;
 use TranslationAudit\Data\AuditResult;
 use TranslationAudit\Data\UsedTranslationKey;
+use TranslationAudit\Enums\DisplayFormat;
 use TranslationAudit\Enums\SaveFormat;
 use TranslationAudit\Exceptions\InvalidConfigException;
 use TranslationAudit\Support\CommandOptionHelper;
@@ -69,8 +70,6 @@ class AuditTranslations extends Command {
 
     /** @var string */
     protected $description = 'Audit your app for missing or unused translations.';
-
-    private const array SUPPORTED_DISPLAY_FORMATS = ['json', 'list', 'table'];
 
     private const array TRANSLATION_FUNCTIONS = ['__', 'trans', 'trans_choice'];
 
@@ -116,8 +115,7 @@ class AuditTranslations extends Command {
 
     private IgnoredKeys $ignore_keys;
 
-    /** @var value-of<self::SUPPORTED_DISPLAY_FORMATS> */
-    private string $display_format = 'list';
+    private DisplayFormat $display_format = DisplayFormat::List;
 
     private CommandOptionHelper $options_helper;
 
@@ -177,7 +175,7 @@ class AuditTranslations extends Command {
         }
 
         if ($result->missing->isEmpty() && (! $result->unused instanceof Collection || $result->unused->isEmpty())) {
-            if ($this->display_format === 'json') {
+            if ($this->display_format === DisplayFormat::Json) {
                 $this->printAuditResult($result);
             }
 
@@ -241,9 +239,9 @@ class AuditTranslations extends Command {
 
     private function printAuditResult(AuditResult $result): void {
         $printer = app(match ($this->display_format) {
-            'list' => PrintResultAsList::class,
-            'json' => PrintResultAsJson::class,
-            'table' => PrintResultAsTable::class,
+            DisplayFormat::List => PrintResultAsList::class,
+            DisplayFormat::Json => PrintResultAsJson::class,
+            DisplayFormat::Table => PrintResultAsTable::class,
         });
 
         $printer->handle($result, $this->output);
@@ -506,20 +504,22 @@ class AuditTranslations extends Command {
     }
 
     /**
-     * @return value-of<self::SUPPORTED_DISPLAY_FORMATS>
+     * The config accepts a DisplayFormat case or its value.
      *
      * @throws InvalidConfigException
      */
-    private function getDisplayFormat(): string {
+    private function getDisplayFormat(): DisplayFormat {
         if ($this->should_output_for_agent) {
-            return 'json';
+            return DisplayFormat::Json;
         }
 
-        $format = $this->options_helper->nonEmptyStringOrConfig('display-format', 'translation-audit.display_format');
+        $config = config('translation-audit.display_format');
+        $format = $this->options_helper->nonEmptyString('display-format', $config instanceof DisplayFormat ? $config->value : config()->string('translation-audit.display_format'));
+        $display_format = DisplayFormat::tryFrom($format);
 
-        throw_unless(\in_array($format, self::SUPPORTED_DISPLAY_FORMATS), InvalidConfigException::class, "Invalid display format '{$format}'. Supported formats: ".implode(', ', self::SUPPORTED_DISPLAY_FORMATS));
+        throw_unless($display_format instanceof DisplayFormat, InvalidConfigException::class, "Invalid display format '{$format}'. Supported formats: ".implode(', ', array_column(DisplayFormat::cases(), 'value')));
 
-        return $format;
+        return $display_format;
     }
 
     /** Whether to hide the progress bar: when asked to, for an agent, or when the error output is not a terminal. */

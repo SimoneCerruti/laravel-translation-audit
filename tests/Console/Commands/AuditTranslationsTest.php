@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Support\Carbon;
 use Symfony\Component\Console\Command\Command;
 use TranslationAudit\Console\Commands\AuditTranslations;
+use TranslationAudit\Enums\DisplayFormat;
 use TranslationAudit\Enums\SaveFormat;
 
 use function Pest\Laravel\artisan;
@@ -855,14 +856,17 @@ describe('display format', function (): void {
             ->assertFailed();
     })->with('display formats');
 
-    it('prints the result in the format given by the config', function (string $format, string $output): void {
-        config(['translation-audit.display_format' => $format]);
+    it('prints the result in the format given by the config', function (string $format, string $output, bool $as_enum): void {
+        config(['translation-audit.display_format' => $as_enum ? DisplayFormat::from($format) : $format]);
 
         artisan(AuditTranslations::class)
             ->expectsOutputToContain($output)
             ->expectsOutputToContain('Found 1 key with missing translations in 1 file.')
             ->assertFailed();
-    })->with('display formats');
+    })->with('display formats')->with([
+        'enum case' => [true],
+        'value' => [false],
+    ]);
 
     it('fails when the display format is not supported', function (Closure $configure, array $options): void {
         $configure();
