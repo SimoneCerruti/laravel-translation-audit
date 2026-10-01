@@ -31,9 +31,6 @@ use Symfony\Component\Finder\Glob;
 use Symfony\Component\Finder\SplFileInfo;
 use TranslationAudit\Actions\DetectMissingTranslations;
 use TranslationAudit\Actions\DetectUnusedTranslations;
-use TranslationAudit\Actions\PrintResultAsJson;
-use TranslationAudit\Actions\PrintResultAsList;
-use TranslationAudit\Actions\PrintResultAsTable;
 use TranslationAudit\Actions\SaveAuditResult;
 use TranslationAudit\Data\AuditResult;
 use TranslationAudit\Data\UsedTranslationKey;
@@ -238,13 +235,7 @@ class AuditTranslations extends Command {
     }
 
     private function printAuditResult(AuditResult $result): void {
-        $printer = app(match ($this->display_format) {
-            DisplayFormat::List => PrintResultAsList::class,
-            DisplayFormat::Json => PrintResultAsJson::class,
-            DisplayFormat::Table => PrintResultAsTable::class,
-        });
-
-        $printer->handle($result, $this->output);
+        $this->display_format->getPrinter()->handle($result, $this->output);
     }
 
     private function printResultSummary(AuditResult $result): void {
