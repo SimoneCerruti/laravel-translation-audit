@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Symfony\Component\Console\Output\BufferedOutput;
 use TranslationAudit\Actions\PrintResultAsList;
+use TranslationAudit\Data\AuditResult;
 
 function printResultAsList(array $missing, int $columns = 80, ?array $unused = null): string {
     $output = new BufferedOutput;
@@ -11,7 +12,7 @@ function printResultAsList(array $missing, int $columns = 80, ?array $unused = n
     putenv("COLUMNS={$columns}");
 
     try {
-        app(PrintResultAsList::class)->handle(['missing' => $missing, ...($unused === null ? [] : ['unused' => $unused])], $output);
+        app(PrintResultAsList::class)->handle($unused === null ? new AuditResult(missingTranslations($missing)) : new AuditResult(missingTranslations($missing))->withUnused(unusedTranslations($unused)), $output);
     } finally {
         putenv('COLUMNS');
     }

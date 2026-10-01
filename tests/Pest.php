@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Illuminate\Testing\PendingCommand;
@@ -11,6 +12,8 @@ use Symfony\Component\Console\Output\ConsoleSectionOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Finder\SplFileInfo;
 use TranslationAudit\Console\Commands\AuditTranslations;
+use TranslationAudit\Data\Translation;
+use TranslationAudit\Data\UsedTranslationKey;
 use TranslationAudit\Tests\TestCase;
 
 use function Pest\Laravel\artisan;
@@ -114,6 +117,64 @@ function resultJson(array $missing, ?array $unused = null): string {
     }
 
     return json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+}
+
+/**
+ * Build the used translation keys from the keys used in each file.
+ *
+ * @param  array<string, list<non-falsy-string>>  $keys
+ * @return Collection<int, UsedTranslationKey>
+ */
+function usedTranslationKeys(array $keys): Collection {
+    $used_keys = new Collection;
+
+    foreach ($keys as $file => $values) {
+        foreach ($values as $value) {
+            $used_keys->push(new UsedTranslationKey($file, $value));
+        }
+    }
+
+    return $used_keys;
+}
+
+/**
+ * Build the missing translations from the missing locales of each key grouped by file.
+ *
+ * @param  array<string, array<string, list<string>>>  $missing
+ * @return Collection<int, Translation>
+ */
+function missingTranslations(array $missing): Collection {
+    $translations = new Collection;
+
+    foreach ($missing as $file => $keys) {
+        foreach ($keys as $key => $locales) {
+            foreach ($locales as $locale) {
+                $translations->push(new Translation((string) $key, $locale, $file));
+            }
+        }
+    }
+
+    return $translations;
+}
+
+/**
+ * Build the unused translations from the unused keys grouped by locale and translation file.
+ *
+ * @param  array<string, array<string, array<string, string>>>  $unused
+ * @return Collection<int, Translation>
+ */
+function unusedTranslations(array $unused): Collection {
+    $translations = new Collection;
+
+    foreach ($unused as $locale => $files) {
+        foreach ($files as $file => $keys) {
+            foreach ($keys as $key => $value) {
+                $translations->push(new Translation((string) $key, $locale, $file, $value));
+            }
+        }
+    }
+
+    return $translations;
 }
 
 /**

@@ -4,21 +4,22 @@ declare(strict_types=1);
 
 namespace TranslationAudit\Actions;
 
+use Illuminate\Support\Collection;
 use stdClass;
 use Symfony\Component\Console\Output\OutputInterface;
-use TranslationAudit\Console\Commands\AuditTranslations;
+use TranslationAudit\Data\AuditResult;
 
-/**
- * @phpstan-import-type AuditResult from AuditTranslations
- */
 final class PrintResultAsJson {
-    /**
-     * @param  AuditResult  $result
-     */
-    public function handle(array $result, OutputInterface $output): void {
-        // The empty sections are encoded as objects, like the non-empty ones.
-        $result = array_map(fn (array $section): array|stdClass => $section === [] ? new stdClass : $section, $result);
+    public function handle(AuditResult $result, OutputInterface $output): void {
+        $sections = ['missing' => $result->missingByFile()];
 
-        $output->writeln(json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), OutputInterface::OUTPUT_RAW);
+        if ($result->unused instanceof Collection) {
+            $sections['unused'] = $result->unusedByLocale();
+        }
+
+        // turning empty sections into stdClass so they get encoded as empty objects, like the non-empty ones.
+        $sections = array_map(fn (Collection $section): Collection|stdClass => $section->isEmpty() ? new stdClass : $section, $sections);
+
+        $output->writeln(json_encode($sections, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), OutputInterface::OUTPUT_RAW);
     }
 }

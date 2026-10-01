@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 namespace TranslationAudit\Actions;
 
+use Illuminate\Support\Collection;
 use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Terminal;
 use TranslationAudit\Console\Commands\AuditTranslations;
+use TranslationAudit\Data\AuditResult;
 
 use function Safe\preg_split;
 
 /**
- * @phpstan-import-type AuditResult from AuditTranslations
  * @phpstan-import-type MissingTranslations from AuditTranslations
  * @phpstan-import-type UnusedTranslations from AuditTranslations
  */
@@ -38,30 +39,28 @@ final readonly class PrintResultAsList {
 
     /**
      * Print the missing translations, preceded by a heading and followed by the unused ones when they are audited.
-     *
-     * @param  AuditResult  $result
      */
-    public function handle(array $result, OutputInterface $output): void {
-        if (! \array_key_exists('unused', $result)) {
-            $this->printMissing($result['missing'], $output);
+    public function handle(AuditResult $result, OutputInterface $output): void {
+        if (! $result->unused instanceof Collection) {
+            $this->printMissing($result->missingByFile()->toArray(), $output);
 
             return;
         }
 
-        if ($result['missing'] !== []) {
+        if ($result->missing->isNotEmpty()) {
             $output->writeln('<options=bold>Missing translations</>');
             $output->writeln('');
-            $this->printMissing($result['missing'], $output);
+            $this->printMissing($result->missingByFile()->toArray(), $output);
         }
 
-        if ($result['unused'] !== []) {
-            if ($result['missing'] !== []) {
+        if ($result->unused->isNotEmpty()) {
+            if ($result->missing->isNotEmpty()) {
                 $output->writeln('');
             }
 
             $output->writeln('<options=bold>Unused translations</>');
             $output->writeln('');
-            $this->printUnused($result['unused'], $output);
+            $this->printUnused($result->unusedByLocale()->toArray(), $output);
         }
     }
 

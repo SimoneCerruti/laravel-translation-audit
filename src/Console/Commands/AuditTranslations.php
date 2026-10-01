@@ -4,19 +4,14 @@ declare(strict_types=1);
 
 namespace TranslationAudit\Console\Commands;
 
-use Closure;
 use Exception;
 use Illuminate\Console\Command;
-use Illuminate\Support\Arr;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Blade;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Laravel\AgentDetector\AgentDetector;
-use ParseError;
 use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Expr\MethodCall;
@@ -29,20 +24,24 @@ use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitor\NameResolver;
 use PhpParser\ParserFactory;
 use RuntimeException;
-use stdClass;
 use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\Finder\Glob;
 use Symfony\Component\Finder\SplFileInfo;
+use TranslationAudit\Actions\DetectMissingTranslations;
+use TranslationAudit\Actions\DetectUnusedTranslations;
 use TranslationAudit\Actions\PrintResultAsJson;
 use TranslationAudit\Actions\PrintResultAsList;
 use TranslationAudit\Actions\PrintResultAsTable;
+use TranslationAudit\Actions\SaveAuditResult;
+use TranslationAudit\Data\AuditResult;
+use TranslationAudit\Data\UsedTranslationKey;
 use TranslationAudit\Exceptions\InvalidConfigException;
 use TranslationAudit\Support\CommandOptionHelper;
+use TranslationAudit\Support\IgnoredKeys;
 
 use function Safe\file_get_contents;
-use function Safe\json_decode;
 use function Safe\preg_match;
 
 /**
@@ -50,7 +49,6 @@ use function Safe\preg_match;
  *
  * @phpstan-type MissingTranslations array<string, non-empty-array<non-falsy-string, non-empty-list<string>>>
  * @phpstan-type UnusedTranslations array<string, non-empty-array<string, non-empty-array<non-falsy-string, string>>>
- * @phpstan-type AuditResult array{missing: MissingTranslations, unused?: UnusedTranslations}
  */
 class AuditTranslations extends Command {
     /** @var string */
@@ -99,9 +97,6 @@ class AuditTranslations extends Command {
     /** @var list<string> */
     private array $supported_locales = [];
 
-    /** @var array<string, list<non-falsy-string>> */
-    private array $translation_keys = [];
-
     private bool $should_follow_links = false;
 
     private bool $should_save_result = false;
@@ -117,11 +112,11 @@ class AuditTranslations extends Command {
     /** @var value-of<self::SUPPORTED_SAVE_FORMATS>|null */
     private ?string $save_format = null;
 
-    /** @var non-falsy-string|null */
-    private ?string $save_path = null;
+    private ?string $save_directory = null;
 
-    /** @var array<non-empty-string, list<non-empty-string>|null> Ignored keys mapped to their ignored locales, null for all locales. */
-    private array $ignore_keys = [];
+    private ?string $save_name = null;
+
+    private IgnoredKeys $ignore_keys;
 
     /** @var value-of<self::SUPPORTED_DISPLAY_FORMATS> */
     private string $display_format = 'list';
@@ -141,7 +136,8 @@ class AuditTranslations extends Command {
             $this->should_follow_links = $this->options_helper->booleanOrConfig('follow-links', 'translation-audit.always_follow_links', false);
             $this->should_save_result = $this->options_helper->booleanOrConfig('save', 'translation-audit.always_save', false);
             $this->save_format = $this->should_save_result ? $this->getSaveFormat() : null;
-            $this->save_path = $this->should_save_result ? $this->getSavePath() : null;
+            $this->save_directory = $this->should_save_result ? $this->options_helper->nonEmptyStringOrConfig('save-path', 'translation-audit.save_path') : null;
+            $this->save_name = $this->should_save_result ? $this->options_helper->nonEmptyStringOrConfig('save-name', 'translation-audit.save_name') : null;
             $this->ignore_keys = $this->getIgnoreKeys();
             $this->should_output_for_agent = AgentDetector::detect()->isAgent || $this->options_helper->boolean('for-agent', false);
             $this->display_format = $this->getDisplayFormat();
@@ -166,19 +162,23 @@ class AuditTranslations extends Command {
     }
 
     private function audit(): int {
-        $this->scanFiles($this->getFilesToAudit());
+        $translation_keys = $this->scanFiles($this->getFilesToAudit());
 
-        $result = ['missing' => $this->detectMissingTranslations()];
+        $locales = array_diff($this->supported_locales, $this->ignore_locales);
+        $result = new AuditResult(app(DetectMissingTranslations::class)->handle($translation_keys, $locales, $this->ignore_keys));
 
         if ($this->should_audit_for_unused_translations) {
-            $result['unused'] = $this->detectUnusedTranslations();
+            $unused = app(DetectUnusedTranslations::class)->handle($translation_keys, $locales, $this->unused_ignore_paths, $this->ignore_keys);
+            $result = $result->withUnused($unused);
         }
 
         if ($this->should_save_result) {
-            $this->saveResult($result);
+            $path = app(SaveAuditResult::class)->handle($result, $this->save_format, $this->save_directory, $this->save_name);
+
+            $this->printMessage("Audit result saved: {$path}", 'info');
         }
 
-        if ($result['missing'] === [] && ($result['unused'] ?? []) === []) {
+        if ($result->missing->isEmpty() && (! $result->unused instanceof Collection || $result->unused->isEmpty())) {
             if ($this->display_format === 'json') {
                 $this->printAuditResult($result);
             }
@@ -198,10 +198,17 @@ class AuditTranslations extends Command {
         return self::FAILURE;
     }
 
-    /** @param  Collection<int, SplFileInfo>  $files */
-    private function scanFiles(Collection $files): void {
+    /**
+     * Scan the files for the translation keys they use.
+     *
+     * @param  Collection<int, SplFileInfo>  $files
+     * @return Collection<int, UsedTranslationKey>
+     */
+    private function scanFiles(Collection $files): Collection {
+        $translation_keys = new Collection;
+
         if ($files->isEmpty()) {
-            return;
+            return $translation_keys;
         }
 
         $progress_output = $this->should_disable_progress_bar ? new SymfonyStyle($this->input, new NullOutput) : $this->output->getErrorStyle();
@@ -214,7 +221,9 @@ class AuditTranslations extends Command {
             $relative_path = $this->getRelativePath($file);
 
             try {
-                $this->translation_keys[$relative_path] = $this->findTranslationKeysInFile($file);
+                foreach ($this->findTranslationKeysInFile($file) as $key) {
+                    $translation_keys->push(new UsedTranslationKey($relative_path, $key));
+                }
             } catch (Exception $e) {
                 $progress_output->newLine(2);
 
@@ -228,119 +237,25 @@ class AuditTranslations extends Command {
 
         $progress_bar->finish();
         $progress_output->newLine(2);
+
+        return $translation_keys;
     }
 
-    /** @return MissingTranslations */
-    private function detectMissingTranslations(): array {
-        $missing = [];
-        $locales = array_diff($this->supported_locales, $this->ignore_locales);
+    private function printAuditResult(AuditResult $result): void {
+        $printer = app(match ($this->display_format) {
+            'list' => PrintResultAsList::class,
+            'json' => PrintResultAsJson::class,
+            'table' => PrintResultAsTable::class,
+        });
 
-        foreach ($this->translation_keys as $file_path => $keys) {
-            foreach (array_unique($keys) as $key) {
-                foreach ($locales as $locale) {
-                    if ($this->isIgnoredKey($key, $locale)) {
-                        continue;
-                    }
-
-                    if (! Lang::hasForLocale($key, $locale)) {
-                        $missing[$file_path][$key][] = $locale;
-                    }
-                }
-            }
-        }
-
-        return $missing;
+        $printer->handle($result, $this->output);
     }
 
-    /** @return UnusedTranslations */
-    private function detectUnusedTranslations(): array {
-        $unused = [];
-        $used_keys = array_flip(array_merge(...array_values($this->translation_keys)));
-        $locales = array_diff($this->supported_locales, $this->ignore_locales);
-
-        foreach ($locales as $locale) {
-            foreach ($this->getTranslationsByFile($locale) as $file_path => $translations) {
-                if ($this->isUnusedIgnoredPath($file_path)) {
-                    continue;
-                }
-
-                foreach ($translations as $key => $translation) {
-                    $key = (string) $key;
-
-                    if ($key === '' || $key === '0' || isset($used_keys[$key]) || $this->isIgnoredKey($key, $locale)) {
-                        continue;
-                    }
-
-                    $unused[$locale][$file_path][$key] = $translation;
-                }
-            }
-        }
-
-        return $unused;
-    }
-
-    /**
-     * @return array<string, array<array-key, string>>
-     */
-    private function getTranslationsByFile(string $locale): array {
-        $translations = [];
-        $json_path = lang_path("{$locale}.json");
-
-        if (is_file($json_path)) {
-            $lines = $this->readTranslationFile($json_path, fn (): mixed => json_decode(file_get_contents($json_path), true, flags: JSON_THROW_ON_ERROR));
-
-            $translations[$this->getPathRelativeToBase($json_path)] = \is_array($lines) ? array_filter($lines, \is_string(...)) : [];
-        }
-
-        if (! is_dir(lang_path($locale))) {
-            return $translations;
-        }
-
-        foreach (Finder::create()->files()->in(lang_path($locale))->name('*.php')->sortByName() as $file) {
-            $group = str_replace('\\', '/', substr($file->getRelativePathname(), 0, -\strlen('.php')));
-            $lines = $this->readTranslationFile($file->getPathname(), fn (): mixed => File::getRequire($file->getPathname()));
-
-            $translations[$this->getPathRelativeToBase($file->getPathname())] = \is_array($lines) ? array_filter(Arr::dot($lines, "{$group}."), \is_string(...)) : [];
-        }
-
-        return $translations;
-    }
-
-    /**
-     * Read a translation file, naming it in the error when it cannot be read.
-     *
-     * @param  Closure(): mixed  $read
-     */
-    private function readTranslationFile(string $path, Closure $read): mixed {
-        try {
-            return $read();
-        } catch (Exception|ParseError $e) {
-            throw new RuntimeException("Unable to read {$this->getPathRelativeToBase($path)}: {$e->getMessage()}", $e->getCode(), previous: $e);
-        }
-    }
-
-    private function isUnusedIgnoredPath(string $relative_path): bool {
-        return array_any($this->unused_ignore_paths, fn (string $ignore_path): bool => preg_match(Glob::toRegex($ignore_path), $relative_path) === 1);
-    }
-
-    /**
-     * @param  AuditResult  $result
-     */
-    private function printAuditResult(array $result): void {
-        match ($this->display_format) {
-            'list' => app(PrintResultAsList::class)->handle($result, $this->output),
-            'json' => app(PrintResultAsJson::class)->handle($result, $this->output),
-            'table' => app(PrintResultAsTable::class)->handle($result, $this->output),
-        };
-    }
-
-    /**
-     * @param  AuditResult  $result
-     */
-    private function printResultSummary(array $result): void {
-        if ($result['missing'] !== []) {
-            $keys_count = array_sum(array_map(count(...), $result['missing']));
-            $files_count = \count($result['missing']);
+    private function printResultSummary(AuditResult $result): void {
+        if ($result->missing->isNotEmpty()) {
+            $missing = $result->missingByFile();
+            $keys_count = $missing->sum(fn (Collection $keys): int => $keys->count());
+            $files_count = $missing->count();
 
             $this->printMessage(\sprintf(
                 'Found %d %s with missing translations in %d %s.',
@@ -351,10 +266,9 @@ class AuditTranslations extends Command {
             ), 'error');
         }
 
-        if (($result['unused'] ?? []) !== []) {
-            $files = array_merge(...array_values($result['unused']));
-            $keys_count = array_sum(array_map(count(...), $files));
-            $files_count = \count($files);
+        if ($result->unused instanceof Collection && $result->unused->isNotEmpty()) {
+            $keys_count = $result->unused->count();
+            $files_count = $result->unused->pluck('file')->unique()->count();
 
             $this->printMessage(\sprintf(
                 'Found %d unused %s in %d translation %s.',
@@ -398,11 +312,6 @@ class AuditTranslations extends Command {
     /** The file path relative to the project root, with forward slashes on every OS. */
     private function getRelativePath(SplFileInfo $file): string {
         return str_replace('\\', '/', $file->getRelativePathname());
-    }
-
-    /** The absolute path relative to the project root, with forward slashes on every OS. */
-    private function getPathRelativeToBase(string $path): string {
-        return Str::after(str_replace('\\', '/', $path), str_replace('\\', '/', base_path()).'/');
     }
 
     /** @return list<non-falsy-string> */
@@ -481,52 +390,16 @@ class AuditTranslations extends Command {
     }
 
     /**
-     * @return array<non-empty-string, list<non-empty-string>|null>
-     *
      * @throws InvalidConfigException
      */
-    private function getIgnoreKeys(): array {
+    private function getIgnoreKeys(): IgnoredKeys {
         try {
             $values = config()->array('translation-audit.ignore_keys');
         } catch (InvalidArgumentException) {
             throw new InvalidConfigException('The "ignore_keys" config must be an array.');
         }
 
-        $ignore_keys = [];
-
-        foreach ($values as $key => $value) {
-            if (\is_int($key) && \is_string($value) && $value) {
-                $ignore_keys[$value] = null;
-
-                continue;
-            }
-
-            if (! \is_string($key) || ! $key || ! \is_array($value) || ! array_is_list($value)) {
-                throw new InvalidConfigException('The "ignore_keys" config must contain only keys, or keys mapped to a list of locales.');
-            }
-
-            foreach ($value as $locale) {
-                if (! \is_string($locale) || ! $locale) {
-                    throw new InvalidConfigException("The locales of the \"{$key}\" key in the \"ignore_keys\" config must be non-empty strings.");
-                }
-            }
-
-            if (! \array_key_exists($key, $ignore_keys)) {
-                $ignore_keys[$key] = $value;
-            }
-        }
-
-        return $ignore_keys;
-    }
-
-    private function isIgnoredKey(string $key, string $locale): bool {
-        if (! \array_key_exists($key, $this->ignore_keys)) {
-            return false;
-        }
-
-        $locales = $this->ignore_keys[$key];
-
-        return $locales === null || \in_array($locale, $locales, true);
+        return IgnoredKeys::fromConfig($values);
     }
 
     /**
@@ -620,22 +493,6 @@ class AuditTranslations extends Command {
     }
 
     /**
-     * @param  AuditResult  $result
-     */
-    private function saveResult(array $result): void {
-        $content = match ($this->save_format) {
-            // turning empty sections into stdClass in order to encode them as empty objects, like the non-empty ones.
-            'json' => json_encode(array_map(fn (array $section): array|stdClass => $section === [] ? new stdClass : $section, $result), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
-            default => throw new InvalidConfigException("Invalid save format '".($this->save_format ?? 'NULL')."'. Supported formats: ".implode(', ', self::SUPPORTED_SAVE_FORMATS)),
-        };
-
-        File::ensureDirectoryExists(\dirname($this->save_path));
-        File::put($this->save_path, $content);
-
-        $this->printMessage("Audit result saved: {$this->save_path}", 'info');
-    }
-
-    /**
      * @return value-of<self::SUPPORTED_SAVE_FORMATS>
      *
      * @throws InvalidConfigException
@@ -646,25 +503,6 @@ class AuditTranslations extends Command {
         throw_unless(\in_array($format, self::SUPPORTED_SAVE_FORMATS), InvalidConfigException::class, "Invalid save format '{$format}'. Supported formats: ".implode(', ', self::SUPPORTED_SAVE_FORMATS));
 
         return $format;
-    }
-
-    /**
-     * @return non-falsy-string
-     */
-    private function getSavePath(): string {
-        $path = rtrim($this->options_helper->nonEmptyStringOrConfig('save-path', 'translation-audit.save_path'), '/\\');
-
-        $name = $this->resolveSaveName($this->options_helper->nonEmptyStringOrConfig('save-name', 'translation-audit.save_name'));
-
-        return $path.DIRECTORY_SEPARATOR."{$name}.{$this->save_format}";
-    }
-
-    private function resolveSaveName(string $name): string {
-        return Str::replaceMatches('/\{(\w+)(?::([^}]*))?\}/', fn (array $m): string => match ($m[1]) {
-            'now' => str_replace(['\\', '/', ':'], '-', Carbon::now()->format($m[2] ?? 'Y-m-d')),
-            'random' => Str::random((int) (($n = $m[2] ?? 8) < 0 ? 8 : $n)),
-            default => $m[0],
-        }, $name);
     }
 
     /**
