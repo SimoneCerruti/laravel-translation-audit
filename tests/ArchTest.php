@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
+use TranslationAudit\Actions\PurgeTranslationsFromFile;
 use TranslationAudit\Results\Contracts\Result;
 
-arch()->preset()->php();
+// var_export is banned as a debug function, but PurgeTranslationsFromFile uses it to write the PHP translation files.
+arch()->preset()->php()->ignoring(PurgeTranslationsFromFile::class);
 
 arch()->preset()->security();
 
