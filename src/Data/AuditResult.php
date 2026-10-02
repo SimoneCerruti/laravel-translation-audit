@@ -23,6 +23,11 @@ readonly class AuditResult {
         return new self($this->missing, $unused);
     }
 
+    /** Whether no translation is missing and, when they are audited, none is unused. */
+    public function isClean(): bool {
+        return $this->missing->isEmpty() && ($this->unused ?? new Collection)->isEmpty();
+    }
+
     /**
      * The missing locales of each translation key, grouped by the path of the file using the key.
      *

@@ -7,7 +7,6 @@ namespace TranslationAudit\Console\Commands;
 use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Laravel\AgentDetector\AgentDetector;
 use RuntimeException;
@@ -17,6 +16,7 @@ use Symfony\Component\Finder\SplFileInfo;
 use TranslationAudit\Actions\BuildAuditResult;
 use TranslationAudit\Actions\DetectAppLocales;
 use TranslationAudit\Actions\FindFilesToScan;
+use TranslationAudit\Actions\PrintAuditSummary;
 use TranslationAudit\Actions\SaveAuditResult;
 use TranslationAudit\Actions\ScanFilesForTranslationKeys;
 use TranslationAudit\Data\AuditResult;
@@ -145,7 +145,7 @@ class AuditTranslations extends Command {
             $this->printMessage("Audit result saved: {$path}", 'info');
         }
 
-        if ($result->missing->isEmpty() && (! $result->unused instanceof Collection || $result->unused->isEmpty())) {
+        if ($result->isClean()) {
             if ($this->display_format === DisplayFormat::Json) {
                 $this->printAuditResult($result);
             }
@@ -159,7 +159,7 @@ class AuditTranslations extends Command {
 
         if (! $this->should_disable_summary) {
             $this->output->getErrorStyle()->newLine();
-            $this->printResultSummary($result);
+            app(PrintAuditSummary::class)->handle($result, $this->output->getErrorStyle());
         }
 
         return self::FAILURE;
@@ -202,35 +202,6 @@ class AuditTranslations extends Command {
 
     private function printAuditResult(AuditResult $result): void {
         $this->display_format->getPrinter()->handle($result, $this->output);
-    }
-
-    private function printResultSummary(AuditResult $result): void {
-        if ($result->missing->isNotEmpty()) {
-            $missing = $result->missingByFile();
-            $keys_count = $missing->sum(fn (Collection $keys): int => $keys->count());
-            $files_count = $missing->count();
-
-            $this->printMessage(\sprintf(
-                'Found %d %s with missing translations in %d %s.',
-                $keys_count,
-                Str::plural('key', $keys_count),
-                $files_count,
-                Str::plural('file', $files_count),
-            ), 'error');
-        }
-
-        if ($result->unused instanceof Collection && $result->unused->isNotEmpty()) {
-            $keys_count = $result->unused->count();
-            $files_count = $result->unused->pluck('file')->unique()->count();
-
-            $this->printMessage(\sprintf(
-                'Found %d unused %s in %d translation %s.',
-                $keys_count,
-                Str::plural('key', $keys_count),
-                $files_count,
-                Str::plural('file', $files_count),
-            ), 'error');
-        }
     }
 
     /** The file path relative to the project root, with forward slashes on every OS. */
