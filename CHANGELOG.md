@@ -1,6 +1,42 @@
 # Release Notes
 
-## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.5.0...HEAD)
+## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.6.0...HEAD)
+
+## [v0.6.0](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.5.0...v0.6.0) - 2026-10-02
+
+### Enhancements
+
+- Accept the `TranslationAudit\Enums\SaveFormat` and `TranslationAudit\Enums\DisplayFormat` cases in the `save_format` and `display_format` config, which now default to `SaveFormat::Json` and `DisplayFormat::List`. The string values keep working, so published config files need no change.
+- Hide with the `--no-summary` option and the `disable_summary` config also the message printed when no translation is missing or unused, which is now the summary of a clean result.
+- Add the `translation:purge-unused` command to remove the unused translations from the JSON and PHP translation files, printing the removed ones grouped by locale and translation file. Pass `--dry-run` to only list them without touching the files. The files matching `unused_ignore_paths` and the ignored locales and keys are left untouched.
+  PHP translation files are rewritten, so their comments and formatting are lost, and the nested arrays left empty are removed.
+
+### Maintenance
+
+- Split the audit command into single-purpose actions for finding and scanning the files, detecting the locales and
+  the missing and unused translations, saving and printing the result, with a common `ResultPrinter` contract for
+  the printers.
+- Move the lifecycle, the file scanning and the config shared by the commands scanning the app into the
+  `AuditCommand` base class and the `SharedConfig` DTO, keeping the audit-only config in `AuditTranslationsConfig`.
+  Extract the `SaveTarget` value object resolving the path of the saved result, the
+  `AuditTranslationsResult::isClean()` check and the backed enum option parsing of `CommandOptionHelper`. The shared
+  options are now listed after the audit-only ones in `translation:audit --help`.
+- Give each command a `<Command>Result` in `TranslationAudit\Results`, implementing the `Result` contract whose
+  `print()` prints it in the display format. `AuditCommand` appends the shared options to the signature of each
+  command, prints the result returned by `perform()` followed by the `DisplayMessage` summary returned by
+  `summarize()` on the error output, styled by its `MessageSeverity`, and exits with the code of `exitCode()`.
+  `AuditResult` is now `AuditTranslationsResult`, which absorbs the json, list and table printers, and the
+  `ResultPrinter` contract and `DisplayFormat::getPrinter()` are removed.
+- Add the `PurgeTranslationsFromFile` action removing translation keys from a JSON or PHP translation file and
+  returning the removed translations.
+- Skip Rector's `PostIncDecToPreIncDecRector`, which conflicts with Pint's post increment style.                                                                                                                                    returning the removed translations.
+- Skip Rector's `PostIncDecToPreIncDecRector`, which conflicts with Pint's post increment style.
+
+### Documentation
+
+- Rewrite the README to be shorter and easier to read, organized around the tasks, and document removing the unused translations.
+
+**Full Changelog**: https://github.com/SimoneCerruti/laravel-translation-audit/compare/v0.5.0...v0.6.0
 
 ## [v0.5.0](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.4.0...v0.5.0) - 2026-10-01
 
