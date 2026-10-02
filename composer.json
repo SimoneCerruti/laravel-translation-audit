@@ -74,6 +74,10 @@
       "@php vendor/bin/testbench workbench:sync-skeleton --ansi @no_additional_args",
       "@php vendor/bin/testbench translation:audit --ansi --follow-links @additional_args"
     ],
+    "workbench:purge-unused": [
+      "@php vendor/bin/testbench workbench:sync-skeleton --ansi @no_additional_args",
+      "@php vendor/bin/testbench translation:purge-unused --ansi --follow-links @additional_args"
+    ],
     "pint": [
       "vendor/bin/pint --parallel"
     ],

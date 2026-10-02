@@ -23,6 +23,7 @@ This repository is a Laravel package. Keep the package focused, idiomatic, and e
 - Workbench build: `composer build`
 - Workbench server: `composer serve`
 - Workbench audit: `composer workbench:audit -- <options>` (syncs the skeleton, then runs `translation:audit --follow-links`)
+- Workbench purge: `composer workbench:purge-unused -- <options>` (syncs the skeleton, then runs `translation:purge-unused --follow-links`; without `--dry-run` it rewrites the files in `workbench/lang`)
 
 ## Local Skills
 
