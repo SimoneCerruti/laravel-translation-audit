@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\ServiceProvider;
 use TranslationAudit\Console\Commands\AuditTranslations;
+use TranslationAudit\Console\Commands\PurgeUnusedTranslations;
 use TranslationAudit\Enums\DisplayFormat;
 use TranslationAudit\Enums\SaveFormat;
 use TranslationAudit\TranslationAuditServiceProvider;
@@ -25,16 +26,19 @@ it('merges the package config', function (): void {
         ->and(config('translation-audit.unused_ignore_paths'))->toBe(['lang/*/auth.php', 'lang/*/pagination.php', 'lang/*/passwords.php', 'lang/*/validation.php']);
 });
 
-it('registers the artisan command', function (): void {
-    expect(Artisan::all())->toHaveKey('translation:audit')
-        ->and(Artisan::all()['translation:audit'])->toBeInstanceOf(AuditTranslations::class);
-});
+it('registers the artisan commands', function (string $name, string $class): void {
+    expect(Artisan::all())->toHaveKey($name)
+        ->and(Artisan::all()[$name])->toBeInstanceOf($class);
+})->with([
+    'audit' => ['translation:audit', AuditTranslations::class],
+    'purge unused' => ['translation:purge-unused', PurgeUnusedTranslations::class],
+]);
 
-it('runs the artisan command by its name', function (): void {
+it('runs the artisan commands by their name', function (string $name): void {
     populateLangDir(files: ['en.json']);
 
-    $this->artisan('translation:audit')->assertSuccessful();
-});
+    $this->artisan($name)->assertSuccessful();
+})->with(['translation:audit', 'translation:purge-unused']);
 
 it('publishes the package resources', function (string $tag, string $source, string $destination): void {
     $paths = ServiceProvider::pathsToPublish(TranslationAuditServiceProvider::class, $tag);

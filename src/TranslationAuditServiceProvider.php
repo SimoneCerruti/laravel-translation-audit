@@ -6,6 +6,7 @@ namespace TranslationAudit;
 
 use Illuminate\Support\ServiceProvider;
 use TranslationAudit\Console\Commands\AuditTranslations;
+use TranslationAudit\Console\Commands\PurgeUnusedTranslations;
 
 class TranslationAuditServiceProvider extends ServiceProvider {
     /**
@@ -33,6 +34,7 @@ class TranslationAuditServiceProvider extends ServiceProvider {
 
         $this->commands([
             AuditTranslations::class,
+            PurgeUnusedTranslations::class,
         ]);
     }
 }

@@ -12,6 +12,7 @@ use Symfony\Component\Console\Output\ConsoleSectionOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Finder\SplFileInfo;
 use TranslationAudit\Console\Commands\AuditTranslations;
+use TranslationAudit\Console\Commands\PurgeUnusedTranslations;
 use TranslationAudit\Data\Translation;
 use TranslationAudit\Data\UsedTranslationKey;
 use TranslationAudit\Tests\TestCase;
@@ -96,6 +97,19 @@ function getFirstAuditSaveFileJsonContent(): mixed {
  */
 function auditAsJson(array $parameters = []): PendingCommand {
     $command = artisan(AuditTranslations::class, ['--display-format' => 'json', ...$parameters]);
+
+    expect($command)->toBeInstanceOf(PendingCommand::class);
+
+    return $command;
+}
+
+/**
+ * Run the purge printing the result in the json display format, so the purged translations can be asserted as a whole.
+ *
+ * @param  array<string, mixed>  $parameters
+ */
+function purgeAsJson(array $parameters = []): PendingCommand {
+    $command = artisan(PurgeUnusedTranslations::class, ['--display-format' => 'json', ...$parameters]);
 
     expect($command)->toBeInstanceOf(PendingCommand::class);
 
