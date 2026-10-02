@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Pest\Rector\Set\PestSetList;
+use Rector\CodingStyle\Rector\PostInc\PostIncDecToPreIncDecRector;
 use Rector\Config\RectorConfig;
 
 return RectorConfig::configure()
@@ -22,4 +23,7 @@ return RectorConfig::configure()
         instanceOf: true,
         earlyReturn: true,
         rectorPreset: true,
-    );
+    )->withSkip([
+        // Pint's laravel preset enforces the post increment style.
+        PostIncDecToPreIncDecRector::class,
+    ]);
