@@ -7,13 +7,13 @@ namespace TranslationAudit\Actions;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Symfony\Component\Console\Output\OutputInterface;
-use TranslationAudit\Data\AuditResult;
+use TranslationAudit\Data\AuditTranslationsResult;
 
 final class PrintAuditSummary {
     /**
      * Print how many keys have missing translations and in how many files, then how many keys are unused and in how many translation files.
      */
-    public function handle(AuditResult $result, OutputInterface $output): void {
+    public function handle(AuditTranslationsResult $result, OutputInterface $output): void {
         if ($result->missing->isNotEmpty()) {
             $missing = $result->missingByFile();
             $keys_count = $missing->sum(fn (Collection $keys): int => $keys->count());

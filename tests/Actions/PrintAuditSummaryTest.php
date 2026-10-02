@@ -5,9 +5,9 @@ declare(strict_types=1);
 use Illuminate\Support\Collection;
 use Symfony\Component\Console\Output\BufferedOutput;
 use TranslationAudit\Actions\PrintAuditSummary;
-use TranslationAudit\Data\AuditResult;
+use TranslationAudit\Data\AuditTranslationsResult;
 
-function printAuditSummary(AuditResult $result): string {
+function printAuditSummary(AuditTranslationsResult $result): string {
     $output = new BufferedOutput;
 
     app(PrintAuditSummary::class)->handle($result, $output);
@@ -16,7 +16,7 @@ function printAuditSummary(AuditResult $result): string {
 }
 
 it('prints the count of the keys with missing translations and of the files using them', function (): void {
-    $result = new AuditResult(missingTranslations([
+    $result = new AuditTranslationsResult(missingTranslations([
         'app/First.php' => ['Hello' => ['en', 'it'], 'Bye' => ['it']],
         'app/Second.php' => ['Hello' => ['it']],
     ]));
@@ -25,7 +25,7 @@ it('prints the count of the keys with missing translations and of the files usin
 });
 
 it('prints the count of the unused keys and of the translation files defining them', function (): void {
-    $result = new AuditResult(new Collection)->withUnused(unusedTranslations([
+    $result = new AuditTranslationsResult(new Collection)->withUnused(unusedTranslations([
         'en' => ['lang/en.json' => ['Bye' => 'Bye']],
         'it' => ['lang/it.json' => ['Bye' => 'Arrivederci'], 'lang/it/messages.php' => ['messages.old' => 'Vecchio']],
     ]));
@@ -34,7 +34,7 @@ it('prints the count of the unused keys and of the translation files defining th
 });
 
 it('prints both counts in the singular', function (): void {
-    $result = new AuditResult(missingTranslations(['app/Example.php' => ['Hello' => ['it']]]))
+    $result = new AuditTranslationsResult(missingTranslations(['app/Example.php' => ['Hello' => ['it']]]))
         ->withUnused(unusedTranslations(['it' => ['lang/it.json' => ['Bye' => 'Arrivederci']]]));
 
     expect(printAuditSummary($result))->toBe(<<<'TXT'
@@ -45,5 +45,5 @@ it('prints both counts in the singular', function (): void {
 });
 
 it('prints nothing for a clean result', function (): void {
-    expect(printAuditSummary(new AuditResult(new Collection)->withUnused(new Collection)))->toBeEmpty();
+    expect(printAuditSummary(new AuditTranslationsResult(new Collection)->withUnused(new Collection)))->toBeEmpty();
 });

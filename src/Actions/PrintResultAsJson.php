@@ -8,10 +8,10 @@ use Illuminate\Support\Collection;
 use stdClass;
 use Symfony\Component\Console\Output\OutputInterface;
 use TranslationAudit\Actions\Contracts\ResultPrinter;
-use TranslationAudit\Data\AuditResult;
+use TranslationAudit\Data\AuditTranslationsResult;
 
 final class PrintResultAsJson implements ResultPrinter {
-    public function handle(AuditResult $result, OutputInterface $output): void {
+    public function handle(AuditTranslationsResult $result, OutputInterface $output): void {
         $sections = ['missing' => $result->missingByFile()];
 
         if ($result->unused instanceof Collection) {

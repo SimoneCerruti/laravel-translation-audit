@@ -9,7 +9,7 @@
 ### Maintenance
 
 - Split the audit command into single-purpose actions for finding and scanning the files, detecting the locales and the missing and unused translations, saving and printing the result, with a common `ResultPrinter` contract for the printers.
-- Move the lifecycle, the file scanning and the config shared by the commands scanning the app into the `AuditCommand` base class and the `SharedConfig` DTO, keeping the audit-only config in `AuditTranslationsConfig`. Extract the `BuildAuditResult` and `PrintAuditSummary` actions, the `SaveTarget` value object resolving the path of the saved result, the `AuditResult::isClean()` check and the backed enum option parsing of `CommandOptionHelper`. The shared options are now listed after the audit-only ones in `translation:audit --help`.
+- Move the lifecycle, the file scanning and the config shared by the commands scanning the app into the `AuditCommand` base class and the `SharedConfig` DTO, keeping the audit-only config in `AuditTranslationsConfig`. Extract the `BuildAuditResult` and `PrintAuditSummary` actions, the `SaveTarget` value object resolving the path of the saved result, the `AuditTranslationsResult::isClean()` check and the backed enum option parsing of `CommandOptionHelper`. The shared options are now listed after the audit-only ones in `translation:audit --help`.
 
 ## [v0.5.0](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.4.0...v0.5.0) - 2026-10-01
 

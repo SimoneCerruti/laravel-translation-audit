@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 use Symfony\Component\Console\Output\BufferedOutput;
 use TranslationAudit\Actions\PrintResultAsJson;
-use TranslationAudit\Data\AuditResult;
+use TranslationAudit\Data\AuditTranslationsResult;
 
 function printResultAsJson(array $missing, ?array $unused = null): string {
     $output = new BufferedOutput;
 
-    app(PrintResultAsJson::class)->handle($unused === null ? new AuditResult(missingTranslations($missing)) : new AuditResult(missingTranslations($missing))->withUnused(unusedTranslations($unused)), $output);
+    app(PrintResultAsJson::class)->handle($unused === null ? new AuditTranslationsResult(missingTranslations($missing)) : new AuditTranslationsResult(missingTranslations($missing))->withUnused(unusedTranslations($unused)), $output);
 
     return $output->fetch();
 }

@@ -7,7 +7,7 @@ namespace TranslationAudit\Actions;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use stdClass;
-use TranslationAudit\Data\AuditResult;
+use TranslationAudit\Data\AuditTranslationsResult;
 use TranslationAudit\Data\SaveTarget;
 use TranslationAudit\Enums\SaveFormat;
 
@@ -17,7 +17,7 @@ final class SaveAuditResult {
      *
      * @return non-falsy-string The path of the saved file.
      */
-    public function handle(AuditResult $result, SaveTarget $target): string {
+    public function handle(AuditTranslationsResult $result, SaveTarget $target): string {
         $content = match ($target->format) {
             SaveFormat::Json => $this->makeJsonResult($result),
         };
@@ -30,7 +30,7 @@ final class SaveAuditResult {
         return $path;
     }
 
-    private function makeJsonResult(AuditResult $result): string {
+    private function makeJsonResult(AuditTranslationsResult $result): string {
         $sections = ['missing' => $result->missingByFile()];
 
         if ($result->unused instanceof Collection) {

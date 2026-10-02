@@ -7,8 +7,8 @@ namespace TranslationAudit\Console\Commands;
 use TranslationAudit\Actions\BuildAuditResult;
 use TranslationAudit\Actions\PrintAuditSummary;
 use TranslationAudit\Actions\SaveAuditResult;
-use TranslationAudit\Data\AuditResult;
 use TranslationAudit\Data\AuditTranslationsConfig;
+use TranslationAudit\Data\AuditTranslationsResult;
 use TranslationAudit\Data\SaveTarget;
 use TranslationAudit\Enums\DisplayFormat;
 
@@ -73,7 +73,7 @@ class AuditTranslations extends AuditCommand {
         return self::FAILURE;
     }
 
-    private function printAuditResult(AuditResult $result): void {
+    private function printAuditResult(AuditTranslationsResult $result): void {
         $this->shared_config->display_format->getPrinter()->handle($result, $this->output);
     }
 }

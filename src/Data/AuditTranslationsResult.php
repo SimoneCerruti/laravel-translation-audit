@@ -6,7 +6,7 @@ namespace TranslationAudit\Data;
 
 use Illuminate\Support\Collection;
 
-readonly class AuditResult {
+readonly class AuditTranslationsResult {
     /**
      * @param  Collection<int, Translation>  $missing
      * @param  Collection<int, Translation>|null  $unused  The unused translations, null when they are not audited.

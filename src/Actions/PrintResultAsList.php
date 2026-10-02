@@ -10,7 +10,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Terminal;
 use TranslationAudit\Actions\Contracts\ResultPrinter;
 use TranslationAudit\Console\Commands\AuditTranslations;
-use TranslationAudit\Data\AuditResult;
+use TranslationAudit\Data\AuditTranslationsResult;
 
 use function Safe\preg_split;
 
@@ -41,7 +41,7 @@ final readonly class PrintResultAsList implements ResultPrinter {
     /**
      * Print the missing translations, preceded by a heading and followed by the unused ones when they are audited.
      */
-    public function handle(AuditResult $result, OutputInterface $output): void {
+    public function handle(AuditTranslationsResult $result, OutputInterface $output): void {
         if (! $result->unused instanceof Collection) {
             $this->printMissing($result->missingByFile()->toArray(), $output);
 
