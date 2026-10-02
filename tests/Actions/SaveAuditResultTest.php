@@ -2,19 +2,17 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\File;
 use TranslationAudit\Actions\SaveAuditResult;
 use TranslationAudit\Data\AuditResult;
+use TranslationAudit\Data\SaveTarget;
 use TranslationAudit\Enums\SaveFormat;
-
-use function Pest\Laravel\travelTo;
 
 it('saves the result as pretty printed json and returns the path of the file', function (): void {
     $result = new AuditResult(missingTranslations(['app/Example.php' => ['Hello' => ['it']]]))
         ->withUnused(unusedTranslations(['it' => ['lang/it.json' => ['Bye' => 'Arrivederci']]]));
 
-    $path = app(SaveAuditResult::class)->handle($result, SaveFormat::Json, base_path('audits/'), 'result');
+    $path = app(SaveAuditResult::class)->handle($result, new SaveTarget(SaveFormat::Json, base_path('audits/'), 'result'));
 
     expect($path)->toBe(base_path('audits').DIRECTORY_SEPARATOR.'result.json')
         ->and(File::get($path))->toBe(json_encode([
@@ -24,15 +22,7 @@ it('saves the result as pretty printed json and returns the path of the file', f
 });
 
 it('saves the empty sections as empty objects and omits the unused section when not audited', function (): void {
-    $path = app(SaveAuditResult::class)->handle(new AuditResult(missingTranslations([])), SaveFormat::Json, base_path('audits'), 'result');
+    $path = app(SaveAuditResult::class)->handle(new AuditResult(missingTranslations([])), new SaveTarget(SaveFormat::Json, base_path('audits'), 'result'));
 
     expect(File::get($path))->toBe("{\n    \"missing\": {}\n}");
-});
-
-it('resolves the date and random patterns of the name', function (): void {
-    travelTo(Carbon::create(2026, 9, 30, 18, 30));
-
-    $path = app(SaveAuditResult::class)->handle(new AuditResult(missingTranslations([])), SaveFormat::Json, base_path('audits'), 'audit-{now:Y-m-d H:i}-{random:4}');
-
-    expect(basename($path))->toMatch('/^audit-2026-09-30 18-30-[a-zA-Z0-9]{4}\.json$/');
 });

@@ -20,6 +20,7 @@ use TranslationAudit\Actions\PrintAuditSummary;
 use TranslationAudit\Actions\SaveAuditResult;
 use TranslationAudit\Actions\ScanFilesForTranslationKeys;
 use TranslationAudit\Data\AuditResult;
+use TranslationAudit\Data\SaveTarget;
 use TranslationAudit\Data\UsedTranslationKey;
 use TranslationAudit\Enums\DisplayFormat;
 use TranslationAudit\Enums\SaveFormat;
@@ -72,8 +73,6 @@ class AuditTranslations extends Command {
 
     private bool $should_follow_links = false;
 
-    private bool $should_save_result = false;
-
     private bool $should_disable_progress_bar = false;
 
     private bool $should_disable_summary = false;
@@ -82,11 +81,8 @@ class AuditTranslations extends Command {
 
     private bool $should_audit_for_unused_translations = false;
 
-    private ?SaveFormat $save_format = null;
-
-    private ?string $save_directory = null;
-
-    private ?string $save_name = null;
+    /** Where to save the audit result, null when it is not saved. */
+    private ?SaveTarget $save_target = null;
 
     private IgnoredKeys $ignore_keys;
 
@@ -105,10 +101,7 @@ class AuditTranslations extends Command {
             $this->unused_ignore_paths = $this->getConfigStringList('unused_ignore_paths');
             $this->supported_locales = $this->getSupportedLocales();
             $this->should_follow_links = $this->options_helper->booleanOrConfig('follow-links', 'translation-audit.always_follow_links', false);
-            $this->should_save_result = $this->options_helper->booleanOrConfig('save', 'translation-audit.always_save', false);
-            $this->save_format = $this->should_save_result ? $this->options_helper->enumOrConfig('save-format', 'translation-audit.save_format', SaveFormat::class) : null;
-            $this->save_directory = $this->should_save_result ? $this->options_helper->nonEmptyStringOrConfig('save-path', 'translation-audit.save_path') : null;
-            $this->save_name = $this->should_save_result ? $this->options_helper->nonEmptyStringOrConfig('save-name', 'translation-audit.save_name') : null;
+            $this->save_target = $this->getSaveTarget();
             $this->ignore_keys = $this->getIgnoreKeys();
             $this->should_output_for_agent = AgentDetector::detect()->isAgent || $this->options_helper->boolean('for-agent', false);
             $this->display_format = $this->getDisplayFormat();
@@ -139,8 +132,8 @@ class AuditTranslations extends Command {
         $locales = array_diff($this->supported_locales, $this->ignore_locales);
         $result = app(BuildAuditResult::class)->handle($translation_keys, $locales, $this->ignore_keys, $this->should_audit_for_unused_translations, $this->unused_ignore_paths);
 
-        if ($this->should_save_result) {
-            $path = app(SaveAuditResult::class)->handle($result, $this->save_format, $this->save_directory, $this->save_name);
+        if ($this->save_target instanceof SaveTarget) {
+            $path = app(SaveAuditResult::class)->handle($result, $this->save_target);
 
             $this->printMessage("Audit result saved: {$path}", 'info');
         }
@@ -287,6 +280,23 @@ class AuditTranslations extends Command {
             ->map(base_path(...))
             ->intersect($heavy_paths)
             ->each(fn (string $path) => $this->printMessage("The '{$path}' is set for scan. This may cause heavy resource usage and significantly slow down the audit.", 'comment'));
+    }
+
+    /**
+     * The options are resolved only when the result is saved, so that the invalid ones fail only then.
+     *
+     * @throws InvalidConfigException
+     */
+    private function getSaveTarget(): ?SaveTarget {
+        if (! $this->options_helper->booleanOrConfig('save', 'translation-audit.always_save', false)) {
+            return null;
+        }
+
+        return new SaveTarget(
+            $this->options_helper->enumOrConfig('save-format', 'translation-audit.save_format', SaveFormat::class),
+            $this->options_helper->nonEmptyStringOrConfig('save-path', 'translation-audit.save_path'),
+            $this->options_helper->nonEmptyStringOrConfig('save-name', 'translation-audit.save_name'),
+        );
     }
 
     /**
