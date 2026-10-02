@@ -14,9 +14,8 @@ use RuntimeException;
 use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Finder\SplFileInfo;
+use TranslationAudit\Actions\BuildAuditResult;
 use TranslationAudit\Actions\DetectAppLocales;
-use TranslationAudit\Actions\DetectMissingTranslations;
-use TranslationAudit\Actions\DetectUnusedTranslations;
 use TranslationAudit\Actions\FindFilesToScan;
 use TranslationAudit\Actions\SaveAuditResult;
 use TranslationAudit\Actions\ScanFilesForTranslationKeys;
@@ -138,12 +137,7 @@ class AuditTranslations extends Command {
         $translation_keys = $this->scanFiles($files);
 
         $locales = array_diff($this->supported_locales, $this->ignore_locales);
-        $result = new AuditResult(app(DetectMissingTranslations::class)->handle($translation_keys, $locales, $this->ignore_keys));
-
-        if ($this->should_audit_for_unused_translations) {
-            $unused = app(DetectUnusedTranslations::class)->handle($translation_keys, $locales, $this->unused_ignore_paths, $this->ignore_keys);
-            $result = $result->withUnused($unused);
-        }
+        $result = app(BuildAuditResult::class)->handle($translation_keys, $locales, $this->ignore_keys, $this->should_audit_for_unused_translations, $this->unused_ignore_paths);
 
         if ($this->should_save_result) {
             $path = app(SaveAuditResult::class)->handle($result, $this->save_format, $this->save_directory, $this->save_name);
