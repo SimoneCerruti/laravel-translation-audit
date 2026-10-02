@@ -41,6 +41,7 @@ final class PurgeTranslationsFromFile {
     private function purgeJsonFile(string $path, Collection $keys): Collection {
         $lines = json_decode(File::get($path), true, flags: JSON_THROW_ON_ERROR);
         $lines = \is_array($lines) ? $lines : [];
+        /** @var Collection<string, string> $purged */
         $purged = new Collection;
 
         // JSON translation keys are flat and can contain dots, so they are looked up as they are.
@@ -69,6 +70,7 @@ final class PurgeTranslationsFromFile {
         $lines = File::getRequire($path);
         $lines = \is_array($lines) ? $lines : [];
         $group = $this->getGroup($path);
+        /** @var Collection<string, string> $purged */
         $purged = new Collection;
 
         foreach ($keys as $key) {
