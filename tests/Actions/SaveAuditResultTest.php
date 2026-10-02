@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\File;
 use TranslationAudit\Actions\SaveAuditResult;
-use TranslationAudit\Data\AuditTranslationsResult;
 use TranslationAudit\Data\SaveTarget;
 use TranslationAudit\Enums\SaveFormat;
+use TranslationAudit\Results\AuditTranslationsResult;
 
 it('saves the result as pretty printed json and returns the path of the file', function (): void {
     $result = new AuditTranslationsResult(missingTranslations(['app/Example.php' => ['Hello' => ['it']]]))

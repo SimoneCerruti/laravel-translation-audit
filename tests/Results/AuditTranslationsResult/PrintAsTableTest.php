@@ -3,19 +3,19 @@
 declare(strict_types=1);
 
 use Symfony\Component\Console\Output\BufferedOutput;
-use TranslationAudit\Actions\PrintResultAsTable;
-use TranslationAudit\Data\AuditTranslationsResult;
+use TranslationAudit\Enums\DisplayFormat;
+use TranslationAudit\Results\AuditTranslationsResult;
 
-function printResultAsTable(array $missing, ?array $unused = null): string {
+function printAuditTranslationsResultAsTable(array $missing, ?array $unused = null): string {
     $output = new BufferedOutput;
 
-    app(PrintResultAsTable::class)->handle($unused === null ? new AuditTranslationsResult(missingTranslations($missing)) : new AuditTranslationsResult(missingTranslations($missing))->withUnused(unusedTranslations($unused)), $output);
+    ($unused === null ? new AuditTranslationsResult(missingTranslations($missing)) : new AuditTranslationsResult(missingTranslations($missing))->withUnused(unusedTranslations($unused)))->print(DisplayFormat::Table, $output);
 
     return str_replace(PHP_EOL, "\n", $output->fetch());
 }
 
 it('prints the keys in a table with a section per file', function (): void {
-    expect(printResultAsTable([
+    expect(printAuditTranslationsResultAsTable([
         'app/First.php' => ['Hello' => ['it'], 'messages.goodbye' => ['en', 'it']],
         'app/Second.php' => ['Hello' => ['en']],
     ]))->toBe(<<<'TXT'
@@ -32,16 +32,16 @@ it('prints the keys in a table with a section per file', function (): void {
 });
 
 it('prints the keys and files containing console tags verbatim', function (): void {
-    expect(printResultAsTable(['app/<info>.php' => ['<error>Hello</error>' => ['en']]]))
+    expect(printAuditTranslationsResultAsTable(['app/<info>.php' => ['<error>Hello</error>' => ['en']]]))
         ->toContain('| app/<info>.php | <error>Hello</error> | EN              |');
 });
 
 it('prints numeric keys', function (): void {
-    expect(printResultAsTable(['app/Example.php' => [404 => ['en']]]))->toContain('| app/Example.php | 404 | EN              |');
+    expect(printAuditTranslationsResultAsTable(['app/Example.php' => [404 => ['en']]]))->toContain('| app/Example.php | 404 | EN              |');
 });
 
 it('prints the missing and the unused translations in two tables under their headings', function (): void {
-    expect(printResultAsTable(
+    expect(printAuditTranslationsResultAsTable(
         ['app/Example.php' => ['Hello' => ['it']]],
         [
             'en' => ['lang/en/messages.php' => ['messages.old' => 'Old']],
@@ -72,7 +72,7 @@ it('prints the missing and the unused translations in two tables under their hea
 });
 
 it('prints only the heading of the non-empty section', function (array $missing, array $unused, string $heading, string $other_heading): void {
-    expect(printResultAsTable($missing, $unused))->toStartWith($heading)
+    expect(printAuditTranslationsResultAsTable($missing, $unused))->toStartWith($heading)
         ->not->toContain($other_heading);
 })->with([
     'only missing' => [['app/Example.php' => ['Hello' => ['it']]], [], 'Missing translations', 'Unused translations'],
@@ -80,6 +80,6 @@ it('prints only the heading of the non-empty section', function (array $missing,
 ]);
 
 it('prints the unused keys and files containing console tags verbatim', function (): void {
-    expect(printResultAsTable([], ['en' => ['lang/<info>.json' => ['<error>Hello</error>' => '<comment>Ciao</comment>']]]))
+    expect(printAuditTranslationsResultAsTable([], ['en' => ['lang/<info>.json' => ['<error>Hello</error>' => '<comment>Ciao</comment>']]]))
         ->toContain('| EN     | lang/<info>.json | <error>Hello</error> | <comment>Ciao</comment> |');
 });

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use TranslationAudit\Results\Contracts\Result;
+
 arch()->preset()->php();
 
 arch()->preset()->security();
@@ -13,3 +15,10 @@ arch('it will not use dd(), ddd(), env(), or exit()')
 arch('the package source declares strict types')
     ->expect('TranslationAudit')
     ->toUseStrictTypes();
+
+arch('the results implement the result contract')
+    ->expect('TranslationAudit\Results')
+    ->classes()
+    ->toImplement(Result::class)
+    ->toHaveSuffix('Result')
+    ->ignoring([Result::class, 'TranslationAudit\Results\Concerns']);

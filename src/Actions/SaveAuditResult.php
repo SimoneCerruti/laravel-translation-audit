@@ -7,9 +7,9 @@ namespace TranslationAudit\Actions;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use stdClass;
-use TranslationAudit\Data\AuditTranslationsResult;
 use TranslationAudit\Data\SaveTarget;
 use TranslationAudit\Enums\SaveFormat;
+use TranslationAudit\Results\AuditTranslationsResult;
 
 final class SaveAuditResult {
     /**

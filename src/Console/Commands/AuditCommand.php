@@ -9,23 +9,32 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 use RuntimeException;
+use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Finder\SplFileInfo;
 use TranslationAudit\Actions\FindFilesToScan;
 use TranslationAudit\Actions\ScanFilesForTranslationKeys;
+use TranslationAudit\Data\DisplayMessage;
 use TranslationAudit\Data\SharedConfig;
 use TranslationAudit\Data\UsedTranslationKey;
+use TranslationAudit\Enums\MessageSeverity;
 use TranslationAudit\Exceptions\InvalidConfigException;
+use TranslationAudit\Results\Contracts\Result;
 use TranslationAudit\Support\CommandOptionHelper;
+
+use function Safe\preg_split;
 
 /**
  * A command scanning the app for the translation keys it uses.
- * It resolves the shared config, then the config of the command, failing as invalid on an invalid one, and then performs the command.
+ * It resolves the shared config, then the config of the command, failing as invalid on an invalid one,
+ * then performs the command, prints its result in the display format followed by its summary, and exits with the code of the result.
+ *
+ * @template TResult of Result
  */
 abstract class AuditCommand extends Command {
-    /** The options overriding the shared config, to append to the signature of the command. */
-    protected const string SHARED_OPTIONS = <<<'TXT'
+    /** The options overriding the shared config, appended to the signature of the command. */
+    private const string SHARED_OPTIONS = <<<'TXT'
             {--follow-links= : Follow symbolic links while looking for the files to scan. Accept true or false, if no value is specified it defaults to true. Overrides the always_follow_links config}
             {--display-format= : The format in which to display the audit result. Supported formats: json, list, table. Overrides the display_format config}
             {--no-progress= : Whether to hide the progress bar while the files are scanned. Accept true or false, if no value is specified it defaults to true. Overrides the disable_progress_bar config}
@@ -36,6 +45,12 @@ abstract class AuditCommand extends Command {
     protected CommandOptionHelper $options_helper;
 
     protected SharedConfig $shared_config;
+
+    public function __construct() {
+        $this->signature .= self::SHARED_OPTIONS;
+
+        parent::__construct();
+    }
 
     final public function handle(): int {
         try {
@@ -51,7 +66,11 @@ abstract class AuditCommand extends Command {
         }
 
         try {
-            return $this->perform();
+            $result = $this->perform();
+            $result->print($this->shared_config->display_format, $this->output);
+            $this->printSummary($result);
+
+            return $this->exitCode($result);
         } catch (Exception $e) {
             $this->printError($e->getMessage());
 
@@ -66,8 +85,28 @@ abstract class AuditCommand extends Command {
      */
     abstract protected function resolveConfig(): void;
 
-    /** Perform the command, returning its exit code. */
-    abstract protected function perform(): int;
+    /**
+     * Perform the command, returning its result.
+     *
+     * @return TResult
+     */
+    abstract protected function perform(): Result;
+
+    /**
+     * Summarize the result, printed on the error output after it unless the summary is hidden.
+     *
+     * @param  TResult  $result
+     */
+    abstract protected function summarize(Result $result): DisplayMessage;
+
+    /**
+     * The exit code of the command for the result, successful by default.
+     *
+     * @param  TResult  $result
+     */
+    protected function exitCode(Result $result): int {
+        return self::SUCCESS;
+    }
 
     /**
      * Find the files to scan and scan them for the translation keys they use.
@@ -81,12 +120,12 @@ abstract class AuditCommand extends Command {
     }
 
     /** Print the message on the error output, unless the output is for an agent. */
-    protected function printMessage(string $message, string $style): void {
+    protected function printMessage(DisplayMessage $message): void {
         if ($this->shared_config->output_for_agent) {
             return;
         }
 
-        $this->output->getErrorStyle()->writeln("<{$style}>{$message}</{$style}>");
+        $this->output->getErrorStyle()->writeln($this->formatMessage($message));
     }
 
     protected function printError(string $message): void {
@@ -128,6 +167,34 @@ abstract class AuditCommand extends Command {
         return $translation_keys;
     }
 
+    /**
+     * Print the summary of the result on the error output, separated from the result when it is not clean, unless the summary is hidden.
+     *
+     * @param  TResult  $result
+     */
+    private function printSummary(Result $result): void {
+        if ($this->shared_config->disable_summary) {
+            return;
+        }
+
+        if (! $result->isClean()) {
+            $this->output->getErrorStyle()->newLine();
+        }
+
+        $this->output->getErrorStyle()->writeln($this->formatMessage($this->summarize($result)));
+    }
+
+    /**
+     * Escape each line of the message and style it by the severity.
+     *
+     * @return list<string>
+     */
+    private function formatMessage(DisplayMessage $message): array {
+        $style = $message->severity->value;
+
+        return array_map(fn (string $line): string => "<{$style}>".OutputFormatter::escape($line)."</{$style}>", preg_split('/\R/', $message->text));
+    }
+
     /** Whether to hide the progress bar: when asked to, for an agent, or when the error output is not a terminal. */
     private function shouldDisableProgressBar(): bool {
         return $this->shared_config->disable_progress_bar || ! $this->output->getErrorStyle()->isDecorated();
@@ -145,6 +212,6 @@ abstract class AuditCommand extends Command {
         collect($this->shared_config->scan_paths)
             ->map(base_path(...))
             ->intersect($heavy_paths)
-            ->each(fn (string $path) => $this->printMessage("The '{$path}' is set for scan. This may cause heavy resource usage and significantly slow down the audit.", 'comment'));
+            ->each(fn (string $path) => $this->printMessage(new DisplayMessage("The '{$path}' is set for scan. This may cause heavy resource usage and significantly slow down the audit.", MessageSeverity::Warning)));
     }
 }

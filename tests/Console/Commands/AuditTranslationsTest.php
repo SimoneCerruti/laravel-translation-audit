@@ -980,6 +980,14 @@ describe('summary', function (): void {
             ->assertFailed();
     });
 
+    it('prints the summary counts in the plural', function (): void {
+        putFile('app/Second.php', "<?php __('Bye');");
+
+        artisan(AuditTranslations::class)
+            ->expectsOutput('Found 2 keys with missing translations in 2 files.')
+            ->assertFailed();
+    });
+
     it('hides the summary with the no-summary option', function (?string $value): void {
         artisan(AuditTranslations::class, ['--no-summary' => $value])
             ->expectsOutput('    EN, IT  Hello')
@@ -1038,6 +1046,13 @@ describe('output streams', function (): void {
             ->and($output['output'])->toBeEmpty()
             ->and($output['error_output'])->toBe('No missing translations found.'.PHP_EOL);
     })->with(['list', 'table']);
+
+    it('prints nothing on the error output when no translation is missing and the summary is hidden', function (): void {
+        $output = auditWithSeparateOutputs(['--no-summary' => true, '--display-format' => 'list']);
+
+        expect($output['exit_code'])->toBe(Command::SUCCESS)
+            ->and($output['error_output'])->toBeEmpty();
+    });
 
     it('prints an empty json object on the standard output when no translation is missing', function (): void {
         $output = auditWithSeparateOutputs(['--display-format' => 'json']);

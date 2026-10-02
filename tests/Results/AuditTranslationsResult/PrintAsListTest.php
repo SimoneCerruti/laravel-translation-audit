@@ -3,16 +3,16 @@
 declare(strict_types=1);
 
 use Symfony\Component\Console\Output\BufferedOutput;
-use TranslationAudit\Actions\PrintResultAsList;
-use TranslationAudit\Data\AuditTranslationsResult;
+use TranslationAudit\Enums\DisplayFormat;
+use TranslationAudit\Results\AuditTranslationsResult;
 
-function printResultAsList(array $missing, int $columns = 80, ?array $unused = null): string {
+function printAuditTranslationsResultAsList(array $missing, int $columns = 80, ?array $unused = null): string {
     $output = new BufferedOutput;
 
     putenv("COLUMNS={$columns}");
 
     try {
-        app(PrintResultAsList::class)->handle($unused === null ? new AuditTranslationsResult(missingTranslations($missing)) : new AuditTranslationsResult(missingTranslations($missing))->withUnused(unusedTranslations($unused)), $output);
+        ($unused === null ? new AuditTranslationsResult(missingTranslations($missing)) : new AuditTranslationsResult(missingTranslations($missing))->withUnused(unusedTranslations($unused)))->print(DisplayFormat::List, $output);
     } finally {
         putenv('COLUMNS');
     }
@@ -21,7 +21,7 @@ function printResultAsList(array $missing, int $columns = 80, ?array $unused = n
 }
 
 it('prints the keys grouped by file with the missing locales aligned before each key', function (): void {
-    expect(printResultAsList([
+    expect(printAuditTranslationsResultAsList([
         'app/First.php' => ['Hello' => ['it'], 'messages.goodbye' => ['en', 'it']],
         'app/Second.php' => ['Hello' => ['en']],
     ]))->toBe(<<<'TXT'
@@ -36,7 +36,7 @@ it('prints the keys grouped by file with the missing locales aligned before each
 });
 
 it('wraps the long keys aligned under the key column', function (): void {
-    expect(printResultAsList(['app/Example.php' => ['Welcome back! Please sign in to continue with your account.' => ['en', 'it']]], columns: 50))
+    expect(printAuditTranslationsResultAsList(['app/Example.php' => ['Welcome back! Please sign in to continue with your account.' => ['en', 'it']]], columns: 50))
         ->toBe(<<<'TXT'
               app/Example.php
                 EN, IT  Welcome back! Please sign in to
@@ -46,12 +46,12 @@ it('wraps the long keys aligned under the key column', function (): void {
 });
 
 it('does not wrap the keys when the terminal is too narrow', function (): void {
-    expect(printResultAsList(['app/Example.php' => ['Welcome back! Please sign in to continue with your account.' => ['en', 'it']]], columns: 30))
+    expect(printAuditTranslationsResultAsList(['app/Example.php' => ['Welcome back! Please sign in to continue with your account.' => ['en', 'it']]], columns: 30))
         ->toContain('    EN, IT  Welcome back! Please sign in to continue with your account.');
 });
 
 it('prints the keys and files containing console tags verbatim', function (): void {
-    expect(printResultAsList(['app/<info>.php' => ['<error>Hello</error>' => ['en']]]))->toBe(<<<'TXT'
+    expect(printAuditTranslationsResultAsList(['app/<info>.php' => ['<error>Hello</error>' => ['en']]]))->toBe(<<<'TXT'
           app/<info>.php
             EN  <error>Hello</error>
 
@@ -59,11 +59,11 @@ it('prints the keys and files containing console tags verbatim', function (): vo
 });
 
 it('prints numeric keys', function (): void {
-    expect(printResultAsList(['app/Example.php' => [404 => ['en']]]))->toContain('    EN  404');
+    expect(printAuditTranslationsResultAsList(['app/Example.php' => [404 => ['en']]]))->toContain('    EN  404');
 });
 
 it('prints the missing and the unused translations under their headings', function (): void {
-    expect(printResultAsList(
+    expect(printAuditTranslationsResultAsList(
         ['app/Example.php' => ['Hello' => ['it']]],
         unused: [
             'en' => ['lang/en/messages.php' => ['messages.old' => 'Old']],
@@ -96,7 +96,7 @@ it('prints the missing and the unused translations under their headings', functi
 });
 
 it('prints only the heading of the non-empty section', function (array $missing, array $unused, string $heading, string $other_heading): void {
-    expect(printResultAsList($missing, unused: $unused))->toStartWith($heading)
+    expect(printAuditTranslationsResultAsList($missing, unused: $unused))->toStartWith($heading)
         ->not->toContain($other_heading);
 })->with([
     'only missing' => [['app/Example.php' => ['Hello' => ['it']]], [], 'Missing translations', 'Unused translations'],
@@ -104,7 +104,7 @@ it('prints only the heading of the non-empty section', function (array $missing,
 ]);
 
 it('wraps the long unused keys and translations aligned under their column', function (): void {
-    expect(printResultAsList([], columns: 40, unused: ['en' => ['lang/en.json' => ['Welcome back! Please sign in to continue.' => 'Welcome back! Please sign in to continue.']]]))
+    expect(printAuditTranslationsResultAsList([], columns: 40, unused: ['en' => ['lang/en.json' => ['Welcome back! Please sign in to continue.' => 'Welcome back! Please sign in to continue.']]]))
         ->toContain(<<<'TXT'
                   Welcome back! Please sign in to
                   continue.
@@ -114,11 +114,11 @@ it('wraps the long unused keys and translations aligned under their column', fun
 });
 
 it('indents every line of the multiline translations', function (): void {
-    expect(printResultAsList([], unused: ['en' => ['lang/en.json' => ['Address' => "Street\nCity"]]]))
+    expect(printAuditTranslationsResultAsList([], unused: ['en' => ['lang/en.json' => ['Address' => "Street\nCity"]]]))
         ->toContain("      Address\n        Street\n        City\n");
 });
 
 it('prints the unused keys and files containing console tags verbatim', function (): void {
-    expect(printResultAsList([], unused: ['en' => ['lang/<info>.json' => ['<error>Hello</error>' => '<comment>Ciao</comment>']]]))
+    expect(printAuditTranslationsResultAsList([], unused: ['en' => ['lang/<info>.json' => ['<error>Hello</error>' => '<comment>Ciao</comment>']]]))
         ->toContain("    lang/<info>.json\n      <error>Hello</error>\n        <comment>Ciao</comment>\n");
 });
