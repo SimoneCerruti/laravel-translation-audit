@@ -5,11 +5,12 @@ declare(strict_types=1);
 use Illuminate\Console\Command;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Input\InputOption;
+use TranslationAudit\Enums\DisplayFormat;
 use TranslationAudit\Exceptions\InvalidConfigException;
 use TranslationAudit\Support\CommandOptionHelper;
 
 /**
- * Build a helper bound to a command exposing the `--flag` and `--text` optional-value options.
+ * Build a helper bound to a command exposing the `--flag`, `--text` and `--display-format` optional-value options.
  *
  * @param  array<string, mixed>  $parameters
  */
@@ -18,6 +19,7 @@ function optionHelper(array $parameters = []): CommandOptionHelper {
     $command->setName('test');
     $command->addOption('flag', mode: InputOption::VALUE_OPTIONAL);
     $command->addOption('text', mode: InputOption::VALUE_OPTIONAL);
+    $command->addOption('display-format', mode: InputOption::VALUE_OPTIONAL);
 
     $input = new ArrayInput($parameters, $command->getDefinition());
     $command->setInput($input);
@@ -136,4 +138,36 @@ describe('nonEmptyStringOrConfig', function (): void {
 
         optionHelper(['--text' => ''])->nonEmptyStringOrConfig('text', 'testing.text');
     })->throws(InvalidConfigException::class, 'The --text option only accepts non-empty strings.');
+});
+
+describe('enumOrConfig', function (): void {
+    it('falls back to the config value when the option is not passed', function (DisplayFormat|string $config): void {
+        config(['testing.format' => $config]);
+
+        expect(optionHelper()->enumOrConfig('display-format', 'testing.format', DisplayFormat::class))->toBe(DisplayFormat::Table);
+    })->with([
+        'case' => [DisplayFormat::Table],
+        'value' => ['table'],
+    ]);
+
+    it('lets the option override the config value', function (): void {
+        config(['testing.format' => DisplayFormat::Table]);
+
+        expect(optionHelper(['--display-format' => 'json'])->enumOrConfig('display-format', 'testing.format', DisplayFormat::class))->toBe(DisplayFormat::Json);
+    });
+
+    it('rejects the values of no case, listing the supported ones', function (Closure $configure, array $parameters): void {
+        $configure();
+
+        optionHelper($parameters)->enumOrConfig('display-format', 'testing.format', DisplayFormat::class);
+    })->with([
+        'option' => [fn () => config(['testing.format' => 'table']), ['--display-format' => 'unknown']],
+        'config' => [fn () => config(['testing.format' => 'unknown']), []],
+    ])->throws(InvalidConfigException::class, "Invalid display format 'unknown'. Supported formats: json, list, table");
+
+    it('rejects an empty option', function (): void {
+        config(['testing.format' => 'table']);
+
+        optionHelper(['--display-format' => ''])->enumOrConfig('display-format', 'testing.format', DisplayFormat::class);
+    })->throws(InvalidConfigException::class, 'The --display-format option only accepts non-empty strings.');
 });

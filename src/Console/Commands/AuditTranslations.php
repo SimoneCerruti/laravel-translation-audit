@@ -106,7 +106,7 @@ class AuditTranslations extends Command {
             $this->supported_locales = $this->getSupportedLocales();
             $this->should_follow_links = $this->options_helper->booleanOrConfig('follow-links', 'translation-audit.always_follow_links', false);
             $this->should_save_result = $this->options_helper->booleanOrConfig('save', 'translation-audit.always_save', false);
-            $this->save_format = $this->should_save_result ? $this->getSaveFormat() : null;
+            $this->save_format = $this->should_save_result ? $this->options_helper->enumOrConfig('save-format', 'translation-audit.save_format', SaveFormat::class) : null;
             $this->save_directory = $this->should_save_result ? $this->options_helper->nonEmptyStringOrConfig('save-path', 'translation-audit.save_path') : null;
             $this->save_name = $this->should_save_result ? $this->options_helper->nonEmptyStringOrConfig('save-name', 'translation-audit.save_name') : null;
             $this->ignore_keys = $this->getIgnoreKeys();
@@ -290,23 +290,6 @@ class AuditTranslations extends Command {
     }
 
     /**
-     * The config accepts a SaveFormat case or its value.
-     *
-     * @throws InvalidConfigException
-     */
-    private function getSaveFormat(): SaveFormat {
-        $config = config('translation-audit.save_format');
-        $format = $this->options_helper->nonEmptyString('save-format', $config instanceof SaveFormat ? $config->value : config()->string('translation-audit.save_format'));
-        $save_format = SaveFormat::tryFrom($format);
-
-        throw_unless($save_format instanceof SaveFormat, InvalidConfigException::class, "Invalid save format '{$format}'. Supported formats: ".implode(', ', array_column(SaveFormat::cases(), 'value')));
-
-        return $save_format;
-    }
-
-    /**
-     * The config accepts a DisplayFormat case or its value.
-     *
      * @throws InvalidConfigException
      */
     private function getDisplayFormat(): DisplayFormat {
@@ -314,13 +297,7 @@ class AuditTranslations extends Command {
             return DisplayFormat::Json;
         }
 
-        $config = config('translation-audit.display_format');
-        $format = $this->options_helper->nonEmptyString('display-format', $config instanceof DisplayFormat ? $config->value : config()->string('translation-audit.display_format'));
-        $display_format = DisplayFormat::tryFrom($format);
-
-        throw_unless($display_format instanceof DisplayFormat, InvalidConfigException::class, "Invalid display format '{$format}'. Supported formats: ".implode(', ', array_column(DisplayFormat::cases(), 'value')));
-
-        return $display_format;
+        return $this->options_helper->enumOrConfig('display-format', 'translation-audit.display_format', DisplayFormat::class);
     }
 
     /** Whether to hide the progress bar: when asked to, for an agent, or when the error output is not a terminal. */
