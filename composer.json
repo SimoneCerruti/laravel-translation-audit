@@ -37,6 +37,7 @@
     "pestphp/pest-plugin-rector": "^5.0",
     "pestphp/pest-plugin-type-coverage": "^4.0||^5.0",
     "phpstan/extension-installer": "^1.4",
+    "phpstan/phpstan": "^2.2.14",
     "phpstan/phpstan-deprecation-rules": "^2.0",
     "rector/rector": "^2.6",
     "thecodingmachine/phpstan-safe-rule": "^1.4"
