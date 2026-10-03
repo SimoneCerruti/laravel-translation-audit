@@ -17,6 +17,15 @@ readonly class DynamicTranslationKey {
         $this->regex = '/\A'.implode('.*', array_map(fn (string $segment): string => preg_quote($segment, '/'), $segments)).'\z/s';
     }
 
+    /**
+     * The key with an asterisk in place of each dynamic part, e.g. `payments.*` for `"payments.{$method}"`.
+     *
+     * @return non-falsy-string
+     */
+    public function pattern(): string {
+        return implode('*', $this->segments);
+    }
+
     /** Whether the key can be the value of this dynamic key, whatever the values of its dynamic parts. */
     public function matches(string $key): bool {
         return preg_match($this->regex, $key) === 1;

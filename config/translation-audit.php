@@ -42,7 +42,7 @@ return [
     // Name of the saved file, without the extension. {now:<format>} inserts the current date in the given PHP date format, {random:<length>} inserts random alphanumeric characters. The --save-name option overrides it.
     'save_name' => 'translation-audit-{now:d_M_Y_H_i}-{random:8}',
 
-    // Translation keys to leave out of the audit. A plain key is ignored for every locale, a key mapped to a list of locales only for those locales, e.g. ['Hello', 'Hi' => ['en']].
+    // Translation keys to leave out of the audit. A plain key is ignored for every locale, a key mapped to a list of locales only for those locales, e.g. ['Hello', 'Hi' => ['en']]. A dynamic key, like __("payments.{$method}"), is ignored by its pattern, with an asterisk in place of each dynamic part, e.g. 'payments.*'.
     'ignore_keys' => [],
 
     // Format in which the audit result is displayed in the console, as a DisplayFormat case or its value. Supported formats: json, list, table. The --display-format option overrides it.

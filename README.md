@@ -67,7 +67,15 @@ To check them on every run, set `audit_unused` to `true` in the config file.
 
 Laravel's own translation files (`auth.php`, `pagination.php`, `passwords.php` and `validation.php`) are skipped, since the framework uses them. You can change this list with the `unused_ignore_paths` config.
 
-Keys built at runtime, like `__("payments.{$method}")` or `__('payments.'.$method)`, count as using every translation they can match, here all the `payments.*` keys. They aren't checked for missing translations, since their values are unknown. Keys without any fixed text, like `__($key)`, are skipped: list the translations they use in `ignore_keys`.
+## Dynamic Keys
+
+Keys built at runtime, like `__("payments.{$method}")` or `__('payments.'.$method)`, can't be checked one by one, since their values are unknown. The audit reads them as the pattern `payments.*` instead:
+
+- every translation matching the pattern counts as used, so it's never reported as unused, nor removed;
+- a translation matching the pattern in one locale is reported as missing in the locales without it, e.g. `payments.paypal` defined in `en` but not in `it`;
+- when no locale has a translation matching the pattern, the pattern itself is reported as missing.
+
+To leave a dynamic key out, list its pattern in `ignore_keys`, e.g. `'payments.*'`. Keys without any fixed text, like `__($key)`, are skipped: list the translations they use in `ignore_keys`.
 
 ## Removing Unused Translations
 
@@ -169,6 +177,7 @@ To ignore a key everywhere, list it on its own. To ignore it only for some local
 'ignore_keys' => [
     'Hello',          // ignored for every locale
     'Hi' => ['en'],   // ignored only for English
+    'payments.*',     // a dynamic key, like __("payments.{$method}"), ignored by its pattern
 ],
 ```
 
