@@ -1,6 +1,21 @@
 # Release Notes
 
-## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.6.0...HEAD)
+## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.7.0...HEAD)
+
+### Enhancements
+
+- Check the dynamic keys for missing translations: a translation matching a dynamic key in one locale is reported as missing in the locales not defining it, and the pattern of the dynamic key, like `payments.*`, is reported as missing in every locale when no translation matches it. A dynamic key can be ignored by its pattern in the `ignore_keys` config.
+- Add the `dynamic_keys` config, mapping the pattern of a dynamic key, like `payments.*`, to a backed enum class or to the list of its values. Each value is audited as a key of its own, so its missing translations are reported, and the translations matching the pattern but not among its values are reported as unused and removed by `translation:purge-unused`.
+
+### Fixes
+
+- Detect the translation keys built at runtime by interpolation or concatenation, like `__("payments.{$method}")` or `__('payments.'.$method)`, as dynamic keys. The translations matching a dynamic key are no longer reported as unused, nor removed by `translation:purge-unused`. Keys without any static text, like `__($key)`, are still skipped.
+
+### Maintenance
+
+- Require `phpstan/phpstan` ^2.2.14 in the development dependencies, so the prefer-lowest lane does not install a version reporting false collection type errors, and type the purged translations collection accordingly.
+
+## [v0.7.0](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.6.0...v0.7.0) - 2026-10-03
 
 ### Enhancements
 
