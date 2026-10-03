@@ -77,6 +77,17 @@ Keys built at runtime, like `__("payments.{$method}")` or `__('payments.'.$metho
 
 To leave a dynamic key out, list its pattern in `ignore_keys`, e.g. `'payments.*'`. Keys without any fixed text, like `__($key)`, are skipped: list the translations they use in `ignore_keys`.
 
+When you know the values a dynamic key can take, list them in the `dynamic_keys` config, as a backed enum or a list. Each value is then audited as a key of its own: `payments.card` is reported as missing wherever it is, and a `payments.*` translation that isn't among the values is reported as unused, and removed by the purge.
+
+```php
+'dynamic_keys' => [
+    'payments.*' => PaymentMethod::class,              // the values of the enum cases
+    'status.*.label' => ['active', 'suspended'],
+],
+```
+
+A pattern has a single asterisk, in place of the dynamic part of the key.
+
 ## Removing Unused Translations
 
 Once you know which translations are unused, you can remove them from your `lang` files in one go. Start with a dry run to see what would be removed, without touching any file:
@@ -169,6 +180,7 @@ Most options have a matching config value, and the option always wins for a sing
 | `supported_locales` | Your app's locales. `['auto']` detects them from the `lang` folder. |
 | `ignore_locales` | The locales to leave out, e.g. `['en']` when your keys are the English text. |
 | `ignore_keys` | The keys to leave out, for every locale or only for some. |
+| `dynamic_keys` | The values of the [dynamic keys](#dynamic-keys), to audit each value as a key of its own. |
 | `unused_ignore_paths` | The translation files never reported as unused, nor removed. |
 
 To ignore a key everywhere, list it on its own. To ignore it only for some locales, map it to them:

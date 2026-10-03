@@ -10,6 +10,7 @@ use TranslationAudit\Actions\DetectAppLocales;
 use TranslationAudit\Enums\DisplayFormat;
 use TranslationAudit\Exceptions\InvalidConfigException;
 use TranslationAudit\Support\CommandOptionHelper;
+use TranslationAudit\Support\DynamicKeyValues;
 use TranslationAudit\Support\IgnoredKeys;
 
 /** The config, and the options overriding it, shared by every command scanning the app for the translation keys it uses. */
@@ -33,6 +34,7 @@ readonly class SharedConfig {
         public array $ignore_locales,
         public array $unused_ignore_paths,
         public IgnoredKeys $ignore_keys,
+        public DynamicKeyValues $dynamic_keys,
         public bool $follow_links,
         public bool $output_for_agent,
         public DisplayFormat $display_format,
@@ -54,6 +56,7 @@ readonly class SharedConfig {
             ignore_locales: self::getConfigStringList('ignore_locales'),
             unused_ignore_paths: self::getConfigStringList('unused_ignore_paths'),
             ignore_keys: self::getIgnoreKeys(),
+            dynamic_keys: self::getDynamicKeys(),
             follow_links: $options_helper->booleanOrConfig('follow-links', 'translation-audit.always_follow_links', false),
             output_for_agent: $output_for_agent,
             display_format: $output_for_agent
@@ -84,6 +87,19 @@ readonly class SharedConfig {
         }
 
         return IgnoredKeys::fromConfig($values);
+    }
+
+    /**
+     * @throws InvalidConfigException
+     */
+    private static function getDynamicKeys(): DynamicKeyValues {
+        try {
+            $values = config()->array('translation-audit.dynamic_keys');
+        } catch (InvalidArgumentException) {
+            throw new InvalidConfigException('The "dynamic_keys" config must be an array.');
+        }
+
+        return DynamicKeyValues::fromConfig($values);
     }
 
     /**

@@ -108,6 +108,17 @@ describe('purge', function (): void {
             ->and(File::getRequire(lang_path('it/admin/users.php')))->toBe(['title' => 'Utenti']);
     });
 
+    it('removes the translations matching a dynamic key but not among its values in the dynamic_keys config', function (): void {
+        putFile('app/Dynamic.php', '<?php __("messages.nested.{$key}");');
+        config(['translation-audit.dynamic_keys' => ['messages.nested.*' => ['used']]]);
+
+        purgeAsJson()
+            ->expectsOutput(UNUSED_JSON)
+            ->assertSuccessful();
+
+        expect(File::getRequire(lang_path('it/messages.php')))->toBe(['welcome' => 'Benvenuto', 'nested' => ['used' => 'Usato']]);
+    });
+
     it('leaves the ignored locales and keys untouched', function (): void {
         config(['translation-audit.ignore_locales' => ['en'], 'translation-audit.ignore_keys' => ['messages.old', 'admin/users.title' => ['it']]]);
 

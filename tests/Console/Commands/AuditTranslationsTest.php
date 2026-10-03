@@ -192,6 +192,32 @@ describe('ignored keys', function (): void {
     ]);
 });
 
+describe('dynamic keys config', function (): void {
+    it('fails when the dynamic_keys config is not an array', function (): void {
+        config(['translation-audit.dynamic_keys' => 'payments.*']);
+
+        artisan(AuditTranslations::class)
+            ->expectsOutputToContain('The "dynamic_keys" config must be an array.')
+            ->assertExitCode(Command::INVALID);
+    });
+
+    it('fails when the dynamic_keys config contains an invalid pattern', function (): void {
+        config(['translation-audit.dynamic_keys' => ['payments' => ['card']]]);
+
+        artisan(AuditTranslations::class)
+            ->expectsOutputToContain('The "dynamic_keys" config must map each pattern, with a single asterisk in place of the dynamic part and some static text, to its values.')
+            ->assertExitCode(Command::INVALID);
+    });
+
+    it('fails when a pattern in the dynamic_keys config has invalid values', function (): void {
+        config(['translation-audit.dynamic_keys' => ['payments.*' => []]]);
+
+        artisan(AuditTranslations::class)
+            ->expectsOutputToContain('The values of the "payments.*" pattern in the "dynamic_keys" config must be a backed enum class, or a non-empty list of non-empty strings or integers.')
+            ->assertExitCode(Command::INVALID);
+    });
+});
+
 describe('file selection', function (): void {
     it('scans only the files matching the scan paths', function (): void {
         putFile('resources/views/welcome.blade.php', "{{ __('Welcome') }}");
@@ -719,6 +745,27 @@ describe('unused translations', function (): void {
                 [
                     'en' => ['lang/en.json' => ['Bye' => 'Bye']],
                     'it' => ['lang/it/messages.php' => ['messages.old' => 'Vecchio']],
+                ],
+            ))
+            ->assertFailed();
+    });
+
+    it('audits each value of a dynamic key in the dynamic_keys config as a key of its own', function (): void {
+        putFile('app/Dynamic.php', '<?php __("messages.nested.{$key}");');
+        config(['translation-audit.dynamic_keys' => ['messages.nested.*' => ['used', 'missing']]]);
+
+        auditAsJson(['--unused' => true])
+            ->expectsOutput(resultJson(
+                [
+                    'app/Dynamic.php' => ['messages.nested.used' => ['en'], 'messages.nested.missing' => ['en', 'it']],
+                    'app/Example.php' => ['messages.welcome' => ['en'], 'messages.nested.used' => ['en']],
+                ],
+                [
+                    'en' => ['lang/en.json' => ['Bye' => 'Bye']],
+                    'it' => [
+                        'lang/it/admin/users.php' => ['admin/users.title' => 'Utenti'],
+                        'lang/it/messages.php' => ['messages.old' => 'Vecchio', 'messages.nested.unused' => 'Inutilizzato'],
+                    ],
                 ],
             ))
             ->assertFailed();

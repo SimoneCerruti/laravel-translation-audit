@@ -45,6 +45,9 @@ return [
     // Translation keys to leave out of the audit. A plain key is ignored for every locale, a key mapped to a list of locales only for those locales, e.g. ['Hello', 'Hi' => ['en']]. A dynamic key, like __("payments.{$method}"), is ignored by its pattern, with an asterisk in place of each dynamic part, e.g. 'payments.*'.
     'ignore_keys' => [],
 
+    // Values of the dynamic keys, like __("payments.{$method}"), so each value is audited as a key of its own. Each pattern, with an asterisk in place of the dynamic part, maps to a backed enum class, whose case values are the values, or to the list of the values, e.g. ['payments.*' => PaymentMethod::class, 'status.*.label' => ['active', 'suspended']].
+    'dynamic_keys' => [],
+
     // Format in which the audit result is displayed in the console, as a DisplayFormat case or its value. Supported formats: json, list, table. The --display-format option overrides it.
     'display_format' => DisplayFormat::List,
 
