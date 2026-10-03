@@ -96,6 +96,18 @@ describe('purge', function (): void {
             ->and(File::getRequire(lang_path('it/validation.php')))->toBe(['required' => 'Obbligatorio']);
     });
 
+    it('leaves the translations matching a dynamic key untouched', function (): void {
+        putFile('app/Dynamic.php', '<?php __("messages.nested.{$key}"); __(\'admin/users.\'.$field);');
+
+        purgeAsJson()
+            ->expectsOutput('{"unused":{"en":{"lang/en.json":{"Bye":"Bye"}},"it":{"lang/it/messages.php":{"messages.old":"Vecchio"}}}}')
+            ->expectsOutput('2 unused translations purged.')
+            ->assertSuccessful();
+
+        expect(File::getRequire(lang_path('it/messages.php')))->toBe(['welcome' => 'Benvenuto', 'nested' => ['used' => 'Usato', 'unused' => 'Inutilizzato']])
+            ->and(File::getRequire(lang_path('it/admin/users.php')))->toBe(['title' => 'Utenti']);
+    });
+
     it('leaves the ignored locales and keys untouched', function (): void {
         config(['translation-audit.ignore_locales' => ['en'], 'translation-audit.ignore_keys' => ['messages.old', 'admin/users.title' => ['it']]]);
 

@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 use Symfony\Component\Finder\SplFileInfo;
 use TranslationAudit\Actions\FindTranslationKeysInFile;
+use TranslationAudit\Data\DynamicTranslationKey;
 
-/** @return list<non-falsy-string> */
+/** @return list<non-falsy-string|DynamicTranslationKey> */
 function findTranslationKeysInFile(string $relative_path): array {
     return app(FindTranslationKeysInFile::class)->handle(new SplFileInfo(base_path($relative_path), dirname($relative_path), $relative_path));
 }
@@ -35,6 +36,26 @@ it('detects the translation key of a call', function (string $call): void {
     'trans()->get()' => "trans()->get('messages.welcome')",
     "app('translator')->get()" => "app('translator')->get('messages.welcome')",
     'double quoted string' => '__("messages.welcome")',
+    'concatenated strings' => "__('messages.'.'welcome')",
+]);
+
+it('detects the dynamic translation key of a call, made of the static texts around the expressions', function (string $call, array $segments): void {
+    putFile('app/Example.php', "<?php\n\nuse Illuminate\\Support\\Facades\\Lang;\n\n{$call};");
+
+    expect(findTranslationKeysInFile('app/Example.php'))->toEqual([new DynamicTranslationKey($segments)]);
+})->with([
+    'interpolated key' => ['__("messages.{$key}")', ['messages.', '']],
+    'interpolated key with a suffix' => ['__("messages.{$key}.label")', ['messages.', '.label']],
+    'interpolated key with only a static suffix' => ['__("{$group}.title")', ['', '.title']],
+    'interpolated simple variable' => ['__("messages.$key")', ['messages.', '']],
+    'interpolated property' => ['__("messages.{$method->value}")', ['messages.', '']],
+    'interpolated key with consecutive expressions' => ['__("messages.{$group}{$key}.label")', ['messages.', '.label']],
+    'concatenated key' => ["__('messages.'.\$key)", ['messages.', '']],
+    'concatenated key with a suffix' => ["__('messages.'.\$key.'.label')", ['messages.', '.label']],
+    'concatenated call' => ["__('messages.'.strtolower(\$key))", ['messages.', '']],
+    'concatenated interpolated key' => ["__(\"messages.{\$group}\".'.label')", ['messages.', '.label']],
+    'Lang facade' => ['Lang::get("messages.{$key}")', ['messages.', '']],
+    'trans_choice()' => ['trans_choice("messages.{$key}", 2)', ['messages.', '']],
 ]);
 
 it('ignores calls without a static translation key', function (string $call): void {
@@ -43,8 +64,8 @@ it('ignores calls without a static translation key', function (string $call): vo
     expect(findTranslationKeysInFile('app/Example.php'))->toBeEmpty();
 })->with([
     'variable key' => '__($key)',
-    'interpolated key' => '__("messages.{$key}")',
-    'concatenated key' => "__('messages.'.\$key)",
+    'interpolated key without static text' => '__("{$group}{$key}")',
+    'concatenated key without static text' => '__($group.$key)',
     'empty key' => "__('')",
     'no arguments' => '__()',
     'first class callable' => '__(...)',
@@ -70,3 +91,12 @@ it('detects translation keys in blade views', function (string $blade): void {
     '@choice' => "<h1>@choice('messages.welcome', 2)</h1>",
     'php block' => "@php \$title = __('messages.welcome'); @endphp",
 ]);
+
+it('detects dynamic translation keys in blade views', function (): void {
+    putFile('resources/views/welcome.blade.php', '<h1>{{ __("messages.{$key}") }}</h1><p>@lang("messages.$key")</p>');
+
+    expect(findTranslationKeysInFile('resources/views/welcome.blade.php'))->toEqual([
+        new DynamicTranslationKey(['messages.', '']),
+        new DynamicTranslationKey(['messages.', '']),
+    ]);
+});

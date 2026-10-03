@@ -67,6 +67,8 @@ To check them on every run, set `audit_unused` to `true` in the config file.
 
 Laravel's own translation files (`auth.php`, `pagination.php`, `passwords.php` and `validation.php`) are skipped, since the framework uses them. You can change this list with the `unused_ignore_paths` config.
 
+Keys built at runtime, like `__("payments.{$method}")` or `__('payments.'.$method)`, count as using every translation they can match, here all the `payments.*` keys. They aren't checked for missing translations, since their values are unknown. Keys without any fixed text, like `__($key)`, are skipped: list the translations they use in `ignore_keys`.
+
 ## Removing Unused Translations
 
 Once you know which translations are unused, you can remove them from your `lang` files in one go. Start with a dry run to see what would be removed, without touching any file:

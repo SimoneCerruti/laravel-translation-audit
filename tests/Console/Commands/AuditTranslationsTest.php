@@ -707,6 +707,20 @@ describe('unused translations', function (): void {
             ->assertFailed();
     });
 
+    it('does not report the translations matching a dynamic key, nor the dynamic key as missing', function (): void {
+        putFile('app/Dynamic.php', '<?php __("messages.nested.{$key}"); __(\'admin/users.\'.$field);');
+
+        auditAsJson(['--unused' => true])
+            ->expectsOutput(resultJson(
+                ['app/Example.php' => ['messages.welcome' => ['en'], 'messages.nested.used' => ['en']]],
+                [
+                    'en' => ['lang/en.json' => ['Bye' => 'Bye']],
+                    'it' => ['lang/it/messages.php' => ['messages.old' => 'Vecchio']],
+                ],
+            ))
+            ->assertFailed();
+    });
+
     it('does not report the ignored locales and keys', function (): void {
         config(['translation-audit.ignore_locales' => ['en'], 'translation-audit.ignore_keys' => ['messages.old', 'admin/users.title' => ['it']]]);
 

@@ -2,6 +2,10 @@
 
 ## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.6.0...HEAD)
 
+### Fixes
+
+- Detect the translation keys built at runtime by interpolation or concatenation, like `__("payments.{$method}")` or `__('payments.'.$method)`, as dynamic keys. The translations matching a dynamic key are no longer reported as unused, nor removed by `translation:purge-unused`. Dynamic keys are not checked for missing translations, and keys without any static text, like `__($key)`, are still skipped.
+
 ## [v0.6.0](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.5.0...v0.6.0) - 2026-10-02
 
 ### Enhancements

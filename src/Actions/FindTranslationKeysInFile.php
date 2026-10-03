@@ -7,17 +7,21 @@ namespace TranslationAudit\Actions;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Lang;
 use PhpParser\Node\Expr;
+use PhpParser\Node\Expr\BinaryOp\Concat;
 use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\StaticCall;
 use PhpParser\Node\Identifier;
+use PhpParser\Node\InterpolatedStringPart;
 use PhpParser\Node\Name;
+use PhpParser\Node\Scalar\InterpolatedString;
 use PhpParser\Node\Scalar\String_;
 use PhpParser\NodeFinder;
 use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitor\NameResolver;
 use PhpParser\ParserFactory;
 use Symfony\Component\Finder\SplFileInfo;
+use TranslationAudit\Data\DynamicTranslationKey;
 
 use function Safe\file_get_contents;
 
@@ -29,9 +33,10 @@ final class FindTranslationKeysInFile {
     private const array TRANSLATOR_METHODS = ['get', 'string', 'array', 'choice', 'has', 'hasForLocale'];
 
     /**
-     * Find the translation keys passed as a string literal to the translation helpers, the Lang facade and the translator, compiling the Blade views first.
+     * Find the translation keys passed to the translation helpers, the Lang facade and the translator, compiling the Blade views first.
+     * A key built from static texts and expressions, by interpolation or concatenation, is a dynamic key, while a key without static texts is skipped.
      *
-     * @return list<non-falsy-string>
+     * @return list<non-falsy-string|DynamicTranslationKey>
      */
     public function handle(SplFileInfo $file): array {
         $parser = (new ParserFactory)->createForHostVersion();
@@ -74,18 +79,66 @@ final class FindTranslationKeysInFile {
         );
     }
 
-    private function getTranslationKeyFromCall(FuncCall|StaticCall|MethodCall $call): ?string {
+    private function getTranslationKeyFromCall(FuncCall|StaticCall|MethodCall $call): string|DynamicTranslationKey|null {
         if ($call->isFirstClassCallable()) {
             return null;
         }
 
         $first_argument = $call->getArgs()[0] ?? null;
 
-        if (! $first_argument?->value instanceof String_ || $first_argument->value->value === '') {
+        if ($first_argument === null) {
             return null;
         }
 
-        return $first_argument->value->value;
+        if ($first_argument->value instanceof String_) {
+            return $first_argument->value->value === '' ? null : $first_argument->value->value;
+        }
+
+        $segments = $this->toSegments($this->getKeyParts($first_argument->value));
+
+        if (implode('', $segments) === '') {
+            return null;
+        }
+
+        return \count($segments) === 1 ? $segments[0] : new DynamicTranslationKey($segments);
+    }
+
+    /**
+     * Split the key into its static texts and, as null, its dynamic parts.
+     *
+     * @return list<string|null>
+     */
+    private function getKeyParts(Expr $expr): array {
+        return match (true) {
+            $expr instanceof String_ => [$expr->value],
+            $expr instanceof InterpolatedString => array_values(array_map(fn (Expr|InterpolatedStringPart $part): ?string => $part instanceof InterpolatedStringPart ? $part->value : null, $expr->parts)),
+            $expr instanceof Concat => [...$this->getKeyParts($expr->left), ...$this->getKeyParts($expr->right)],
+            default => [null],
+        };
+    }
+
+    /**
+     * Join the key parts into the static texts between its dynamic parts, so a dynamic part separates two segments.
+     * Consecutive static texts join into one segment, and consecutive dynamic parts count as a single one.
+     * A key starting or ending with a dynamic part has an empty first or last segment, a key without dynamic parts a single segment.
+     * E.g. ['payments.', null, '.label'] gives ['payments.', '.label'], [null, '.title'] gives ['', '.title'],
+     * ['messages.', null, null] gives ['messages.', ''], and ['messages.', 'welcome'] gives ['messages.welcome'].
+     *
+     * @param  list<string|null>  $parts  The static texts and, as null, the dynamic parts of the key.
+     * @return non-empty-list<string>
+     */
+    private function toSegments(array $parts): array {
+        $segments = [''];
+
+        foreach ($parts as $part) {
+            if ($part !== null) {
+                $segments[array_key_last($segments)] .= $part;
+            } elseif (\count($segments) === 1 || end($segments) !== '') {
+                $segments[] = '';
+            }
+        }
+
+        return $segments;
     }
 
     private function isTranslatorMethod(Identifier|Expr $name): bool {

@@ -6,13 +6,14 @@ namespace TranslationAudit\Actions;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Lang;
+use TranslationAudit\Data\DynamicTranslationKey;
 use TranslationAudit\Data\Translation;
 use TranslationAudit\Data\UsedTranslationKey;
 use TranslationAudit\Support\IgnoredKeys;
 
 final class DetectMissingTranslations {
     /**
-     * Detect the translations missing in each locale for the keys used in each file.
+     * Detect the translations missing in each locale for the keys used in each file, skipping the dynamic keys.
      *
      * @param  Collection<int, UsedTranslationKey>  $translation_keys  The keys used in the scanned files.
      * @param  array<string>  $locales
@@ -24,6 +25,11 @@ final class DetectMissingTranslations {
         $unique_keys = $translation_keys->unique(fn (UsedTranslationKey $key): string => json_encode([$key->file, $key->value], JSON_THROW_ON_ERROR));
 
         foreach ($unique_keys as $key) {
+            // the values of a dynamic key are unknown.
+            if ($key->value instanceof DynamicTranslationKey) {
+                continue;
+            }
+
             foreach ($locales as $locale) {
                 if ($ignored_keys->has($key->value, $locale)) {
                     continue;
