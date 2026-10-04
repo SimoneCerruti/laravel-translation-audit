@@ -132,6 +132,18 @@ describe('purge', function (): void {
         expect(File::getRequire(lang_path('it/orders.php')))->toBe(['status' => ['pending-payment' => 'In attesa di pagamento']]);
     });
 
+    it('leaves the translations used by the custom translation calls untouched', function (): void {
+        putFile('app/Custom.php', "<?php t('Bye'); \\App\\Support\\Translator::translateFor('it', 'messages.old');");
+        config(['translation-audit.translation_calls' => ['t', 'App\Support\Translator::translateFor' => 1]]);
+
+        purgeAsJson()
+            ->expectsOutput('{"unused":{"it":{"lang/it/admin/users.php":{"admin/users.title":"Utenti"},"lang/it/messages.php":{"messages.nested.unused":"Inutilizzato"}}}}')
+            ->assertSuccessful();
+
+        expect(File::getRequire(lang_path('it/messages.php')))->toBe(['welcome' => 'Benvenuto', 'old' => 'Vecchio', 'nested' => ['used' => 'Usato']])
+            ->and(json_decode(File::get(lang_path('en.json')), true))->toBe(['Hello' => 'Hello', 'Bye' => 'Bye']);
+    });
+
     it('leaves the ignored locales and keys untouched', function (): void {
         config(['translation-audit.ignore_locales' => ['en'], 'translation-audit.ignore_keys' => ['messages.old', 'admin/users.title' => ['it']]]);
 

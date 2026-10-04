@@ -67,6 +67,24 @@ To check them on every run, set `audit_unused` to `true` in the config file.
 
 Laravel's own translation files (`auth.php`, `pagination.php`, `passwords.php` and `validation.php`) are skipped, since the framework uses them. You can change this list with the `unused_ignore_paths` config.
 
+## Custom Translation Calls
+
+The audit reads the keys passed to Laravel's own translation calls: `__()`, `trans()`, `trans_choice()`, the `Lang` facade, and the translator returned by `trans()` and `app('translator')`. If your app translates through its own helpers, list them in the `translation_calls` config, or their keys are reported as unused, and removed by the purge:
+
+```php
+'translation_calls' => [
+    't',                                                // t('messages.welcome')
+    'App\Support\t',                                    // a namespaced function
+    App\Support\Translator::class.'::translate',        // Translator::translate('messages.welcome')
+    'Illuminate\Support\Facades\Lang::customTranslate', // a macro on the Lang facade
+    'trans_for' => 1,                                   // trans_for($locale, 'messages.welcome')
+],
+```
+
+A function or static method listed on its own takes the key as its first argument. When the key comes later, map the call to the position of its argument, starting from 0. Name the functions and classes in full, as the facade aliases used in the Blade views, like `Lang`, are resolved to their class.
+
+Only calls passing the key by position are read, not by a named argument. Calls on an instance, like `$translator->translate('messages.welcome')`, can't be followed by the scan: list the keys they use in `ignore_keys`, or return them from a [custom resolver](#custom-resolvers). A custom Blade directive is read through the code it compiles to, so `@t('messages.welcome')` compiling to `t('messages.welcome')` only needs `t` in the config.
+
 ## Dynamic Keys
 
 Keys built at runtime, like `__("payments.{$method}")` or `__('payments.'.$method)`, can't be checked one by one, since their values are unknown. The audit reads them as the pattern `payments.*` instead:
@@ -228,6 +246,7 @@ Most options have a matching config value, and the option always wins for a sing
 | `ignore_paths` | The files to skip, even when they match `scan_paths`. |
 | `supported_locales` | Your app's locales. `['auto']` detects them from the `lang` folder. |
 | `ignore_locales` | The locales to leave out, e.g. `['en']` when your keys are the English text. |
+| `translation_calls` | Your own [translation functions and static methods](#custom-translation-calls), besides Laravel's. |
 | `ignore_keys` | The keys to leave out, for every locale or only for some. |
 | `dynamic_keys` | The values of the [dynamic keys](#dynamic-keys), to audit each value as a key of its own. |
 | `resolvers` | The [custom resolvers](#custom-resolvers) of the keys built at runtime by your own logic. |

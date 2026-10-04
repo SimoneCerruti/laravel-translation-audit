@@ -151,7 +151,7 @@ abstract class AuditCommand extends Command {
         $progress_bar->start();
 
         try {
-            $translation_keys = app(ScanFilesForTranslationKeys::class)->handle($files, function (SplFileInfo $file, int $index) use ($files, $progress_bar): void {
+            $translation_keys = app(ScanFilesForTranslationKeys::class)->handle($files, $this->shared_config->translation_calls, function (SplFileInfo $file, int $index) use ($files, $progress_bar): void {
                 $next_file = $files->get($index + 1);
                 $progress_bar->setMessage($next_file ? $this->getRelativePath($next_file) : '');
                 $progress_bar->advance();

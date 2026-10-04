@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace TranslationAudit\Actions;
 
+use Illuminate\Foundation\AliasLoader;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Lang;
+use PhpParser\Node\Arg;
 use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\BinaryOp\Concat;
+use PhpParser\Node\Expr\CallLike;
 use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\StaticCall;
@@ -22,6 +25,7 @@ use PhpParser\NodeVisitor\NameResolver;
 use PhpParser\ParserFactory;
 use Symfony\Component\Finder\SplFileInfo;
 use TranslationAudit\Data\DynamicTranslationKey;
+use TranslationAudit\Support\TranslationCalls;
 
 use function Safe\file_get_contents;
 
@@ -32,13 +36,16 @@ final class FindTranslationKeysInFile {
 
     private const array TRANSLATOR_METHODS = ['get', 'string', 'array', 'choice', 'has', 'hasForLocale'];
 
+    /** The parameter of the key in Laravel's translation calls. */
+    private const string KEY_PARAMETER = 'key';
+
     /**
-     * Find the translation keys passed to the translation helpers, the Lang facade and the translator, compiling the Blade views first.
+     * Find the translation keys passed to the translation helpers, the Lang facade, the translator and the custom translation calls, compiling the Blade views first.
      * A key built from static texts and expressions, by interpolation or concatenation, is a dynamic key, while a key without static texts is skipped.
      *
      * @return list<non-falsy-string|DynamicTranslationKey>
      */
-    public function handle(SplFileInfo $file): array {
+    public function handle(SplFileInfo $file, TranslationCalls $translation_calls): array {
         $parser = (new ParserFactory)->createForHostVersion();
 
         $content = file_get_contents($file->getPathname());
@@ -48,59 +55,123 @@ final class FindTranslationKeysInFile {
         }
 
         $statements = new NodeTraverser(new NameResolver)->traverse($parser->parse($content) ?? []);
-        $node_finder = new NodeFinder;
+        $calls = new NodeFinder()->findInstanceOf($statements, CallLike::class);
 
-        $function_calls = array_filter(
-            $node_finder->findInstanceOf($statements, FuncCall::class),
-            fn (FuncCall $call): bool => $call->name instanceof Name
-                && $call->args !== []
-                && \in_array($call->name->toString(), self::TRANSLATION_FUNCTIONS, true),
+        $keys = array_map(
+            fn (CallLike $call): string|DynamicTranslationKey|null => $this->getTranslationKeyFromCall($call, $this->getKeyPosition($call, $translation_calls)),
+            $calls,
         );
 
-        $static_calls = array_filter(
-            $node_finder->findInstanceOf($statements, StaticCall::class),
-            fn (StaticCall $call): bool => $call->class instanceof Name
-                && \in_array($call->class->toString(), self::LANG_FACADES, true)
-                && $this->isTranslatorMethod($call->name),
-        );
-
-        $method_calls = array_filter(
-            $node_finder->findInstanceOf($statements, MethodCall::class),
-            fn (MethodCall $call): bool => $this->isTranslatorInstance($call->var)
-                && $this->isTranslatorMethod($call->name),
-        );
-
-        return array_values(
-            collect([...$function_calls, ...$static_calls, ...$method_calls])
-                ->values()
-                ->map($this->getTranslationKeyFromCall(...))
-                ->filter()
-                ->all(),
-        );
+        return array_values(array_filter($keys));
     }
 
-    private function getTranslationKeyFromCall(FuncCall|StaticCall|MethodCall $call): string|DynamicTranslationKey|null {
-        if ($call->isFirstClassCallable()) {
+    /**
+     * Where the key of a translation call is passed, or null for a call not translating.
+     *
+     * @return int<0, max>|self::KEY_PARAMETER|null
+     */
+    private function getKeyPosition(CallLike $call, TranslationCalls $translation_calls): int|string|null {
+        return match (true) {
+            $call instanceof FuncCall => $this->getFunctionKeyPosition($call, $translation_calls),
+            $call instanceof StaticCall => $this->getStaticMethodKeyPosition($call, $translation_calls),
+            $call instanceof MethodCall => $this->getMethodKeyPosition($call),
+            default => null,
+        };
+    }
+
+    /**
+     * Where the key of a call to a translation helper, or to a custom translation function, is passed.
+     *
+     * @return int<0, max>|self::KEY_PARAMETER|null
+     */
+    private function getFunctionKeyPosition(FuncCall $call, TranslationCalls $translation_calls): int|string|null {
+        if (! $call->name instanceof Name) {
             return null;
         }
 
-        $first_argument = $call->getArgs()[0] ?? null;
+        if (\in_array($call->name->toString(), self::TRANSLATION_FUNCTIONS, true)) {
+            return self::KEY_PARAMETER;
+        }
 
-        if ($first_argument === null) {
+        // An unqualified function called in a namespace is either the namespaced function or, as a fallback, the global one.
+        $namespaced_name = $call->name->getAttribute('namespacedName');
+
+        return $translation_calls->functionKeyPosition(...($namespaced_name instanceof Name ? [$namespaced_name->toString(), $call->name->toString()] : [$call->name->toString()]));
+    }
+
+    /**
+     * Where the key of a call to the Lang facade, or to a custom translation static method, is passed.
+     *
+     * @return int<0, max>|self::KEY_PARAMETER|null
+     */
+    private function getStaticMethodKeyPosition(StaticCall $call, TranslationCalls $translation_calls): int|string|null {
+        if (! $call->class instanceof Name || ! $call->name instanceof Identifier) {
             return null;
         }
 
-        if ($first_argument->value instanceof String_) {
-            return $first_argument->value->value === '' ? null : $first_argument->value->value;
+        if (\in_array($call->class->toString(), self::LANG_FACADES, true) && $this->isTranslatorMethod($call->name)) {
+            return self::KEY_PARAMETER;
         }
 
-        $segments = $this->toSegments($this->getKeyParts($first_argument->value));
+        // A class without a namespace may be an alias, like the facades used in the Blade views.
+        $class = $call->class->toString();
+        $aliases = AliasLoader::getInstance()->getAliases();
+
+        return $translation_calls->staticMethodKeyPosition(\is_string($aliases[$class] ?? null) ? $aliases[$class] : $class, $call->name->toString());
+    }
+
+    /**
+     * Where the key of a call to the translator is passed.
+     *
+     * @return self::KEY_PARAMETER|null
+     */
+    private function getMethodKeyPosition(MethodCall $call): ?string {
+        return $this->isTranslatorInstance($call->var) && $this->isTranslatorMethod($call->name) ? self::KEY_PARAMETER : null;
+    }
+
+    /**
+     * @param  int<0, max>|self::KEY_PARAMETER|null  $position  The position of the key argument, the key parameter of Laravel's translation calls, passed first or by name, or null for a call not translating.
+     */
+    private function getTranslationKeyFromCall(CallLike $call, int|string|null $position): string|DynamicTranslationKey|null {
+        if ($position === null || $call->isFirstClassCallable()) {
+            return null;
+        }
+
+        $key_argument = $this->getKeyArgument(array_values($call->getArgs()), $position);
+
+        if (! $key_argument instanceof Arg) {
+            return null;
+        }
+
+        if ($key_argument->value instanceof String_) {
+            return $key_argument->value->value === '' ? null : $key_argument->value->value;
+        }
+
+        $segments = $this->toSegments($this->getKeyParts($key_argument->value));
 
         if (implode('', $segments) === '') {
             return null;
         }
 
         return \count($segments) === 1 ? $segments[0] : new DynamicTranslationKey($segments);
+    }
+
+    /**
+     * The argument passed at the position, or Laravel's key parameter passed first or by name.
+     * A named argument is never at a position, since the positional arguments come first.
+     *
+     * @param  list<Arg>  $arguments
+     * @param  int<0, max>|self::KEY_PARAMETER  $position
+     */
+    private function getKeyArgument(array $arguments, int|string $position): ?Arg {
+        if (\is_string($position)) {
+            return array_find($arguments, fn (Arg $argument): bool => $argument->name?->toString() === $position)
+                ?? (isset($arguments[0]) && $arguments[0]->name === null ? $arguments[0] : null);
+        }
+
+        $argument = $arguments[$position] ?? null;
+
+        return $argument !== null && $argument->name === null && ! $argument->unpack ? $argument : null;
     }
 
     /**

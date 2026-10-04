@@ -42,6 +42,9 @@ return [
     // Name of the saved file, without the extension. {now:<format>} inserts the current date in the given PHP date format, {random:<length>} inserts random alphanumeric characters. The --save-name option overrides it.
     'save_name' => 'translation-audit-{now:d_M_Y_H_i}-{random:8}',
 
+    // Custom translation functions and static methods, besides Laravel's own, whose first argument is audited as a translation key, e.g. ['t', 'App\Support\Translator::translate']. Map one to the position of the argument holding the key, starting from 0, when the key is not the first argument, e.g. ['trans_for' => 1].
+    'translation_calls' => [],
+
     // Translation keys to leave out of the audit. A plain key is ignored for every locale, a key mapped to a list of locales only for those locales, e.g. ['Hello', 'Hi' => ['en']]. A dynamic key, like __("payments.{$method}"), is ignored by its pattern, with an asterisk in place of each dynamic part, e.g. 'payments.*'.
     'ignore_keys' => [],
 

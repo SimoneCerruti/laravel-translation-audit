@@ -2,13 +2,18 @@
 
 declare(strict_types=1);
 
+use Illuminate\Foundation\AliasLoader;
 use Symfony\Component\Finder\SplFileInfo;
 use TranslationAudit\Actions\FindTranslationKeysInFile;
 use TranslationAudit\Data\DynamicTranslationKey;
+use TranslationAudit\Support\TranslationCalls;
 
-/** @return list<non-falsy-string|DynamicTranslationKey> */
-function findTranslationKeysInFile(string $relative_path): array {
-    return app(FindTranslationKeysInFile::class)->handle(new SplFileInfo(base_path($relative_path), dirname($relative_path), $relative_path));
+/**
+ * @param  array<array-key, mixed>  $translation_calls  The translation_calls config.
+ * @return list<non-falsy-string|DynamicTranslationKey>
+ */
+function findTranslationKeysInFile(string $relative_path, array $translation_calls = []): array {
+    return app(FindTranslationKeysInFile::class)->handle(new SplFileInfo(base_path($relative_path), dirname($relative_path), $relative_path), TranslationCalls::fromConfig($translation_calls));
 }
 
 it('returns the key of each translation call, keeping the duplicates', function (): void {
@@ -37,6 +42,9 @@ it('detects the translation key of a call', function (string $call): void {
     "app('translator')->get()" => "app('translator')->get('messages.welcome')",
     'double quoted string' => '__("messages.welcome")',
     'concatenated strings' => "__('messages.'.'welcome')",
+    'named key argument' => "__(key: 'messages.welcome')",
+    'named key argument after other named arguments' => "trans(replace: ['name' => 'Taylor'], key: 'messages.welcome')",
+    'named key argument of the Lang facade' => "Lang::choice(number: 2, key: 'messages.welcome')",
 ]);
 
 it('detects the dynamic translation key of a call, made of the static texts around the expressions', function (string $call, array $segments): void {
@@ -78,6 +86,7 @@ it('ignores calls without a static translation key', function (string $call): vo
     'other service' => "app('config')->get('messages.welcome')",
     'dynamic translator method' => "trans()->{\$method}('messages.welcome')",
     'first class callable translator method' => 'trans()->get(...)',
+    'named arguments without the key' => "__(replace: ['name' => 'Taylor'])",
 ]);
 
 it('detects translation keys in blade views', function (string $blade): void {
@@ -98,5 +107,60 @@ it('detects dynamic translation keys in blade views', function (): void {
     expect(findTranslationKeysInFile('resources/views/welcome.blade.php'))->toEqual([
         new DynamicTranslationKey(['messages.', '']),
         new DynamicTranslationKey(['messages.', '']),
+    ]);
+});
+
+describe('custom translation calls', function (): void {
+    beforeEach(function (): void {
+        AliasLoader::getInstance()->alias('CustomTranslator', 'App\\Support\\Translator');
+    });
+
+    it('detects the translation key of a custom call', function (string $code, array $translation_calls): void {
+        putFile('app/Example.php', "<?php\n\n{$code};");
+
+        expect(findTranslationKeysInFile('app/Example.php', $translation_calls))->toBe(['messages.welcome']);
+    })->with([
+        'global function' => ["t('messages.welcome')", ['t']],
+        'global function with a different case' => ["T('messages.welcome')", ['t']],
+        'global function called in a namespace' => ["namespace App\\Http;\n\nt('messages.welcome')", ['t']],
+        'namespaced function called in its namespace' => ["namespace App\\Support;\n\nt('messages.welcome')", ['App\\Support\\t']],
+        'imported namespaced function' => ["use function App\\Support\\t;\n\nt('messages.welcome')", ['App\\Support\\t']],
+        'fully qualified function with a leading backslash in the config' => ["\\App\\Support\\t('messages.welcome')", ['\\App\\Support\\t']],
+        'imported static method' => ["use App\\Support\\Translator;\n\nTranslator::translate('messages.welcome')", ['App\\Support\\Translator::translate']],
+        'static method with a different case' => ["\\App\\Support\\translator::TRANSLATE('messages.welcome')", ['App\\Support\\Translator::translate']],
+        'aliased static method' => ["CustomTranslator::translate('messages.welcome')", ['App\\Support\\Translator::translate']],
+        'Lang facade macro' => ["use Illuminate\\Support\\Facades\\Lang;\n\nLang::customTranslate('messages.welcome')", ['Illuminate\\Support\\Facades\\Lang::customTranslate']],
+        'Lang alias macro' => ["Lang::customTranslate('messages.welcome')", ['Illuminate\\Support\\Facades\\Lang::customTranslate']],
+        'key at a position' => ["t_for('it', 'messages.welcome')", ['t_for' => 1]],
+        'static method key at a position' => ["\\App\\Support\\Translator::translateFor('it', 'messages.welcome')", ['App\\Support\\Translator::translateFor' => 1]],
+    ]);
+
+    it('detects the dynamic translation key of a custom call', function (): void {
+        putFile('app/Example.php', '<?php t("messages.{$key}");');
+
+        expect(findTranslationKeysInFile('app/Example.php', ['t']))->toEqual([new DynamicTranslationKey(['messages.', ''])]);
+    });
+
+    it('detects the translation key of a custom call in blade views', function (): void {
+        putFile('resources/views/welcome.blade.php', "<h1>{{ t('messages.title') }}</h1><p>{{ CustomTranslator::translate('messages.welcome') }}</p>");
+
+        expect(findTranslationKeysInFile('resources/views/welcome.blade.php', ['t', 'App\\Support\\Translator::translate']))->toBe(['messages.title', 'messages.welcome']);
+    });
+
+    it('ignores the custom calls without a static key at the position', function (string $code, array $translation_calls): void {
+        putFile('app/Example.php', "<?php\n\n{$code};");
+
+        expect(findTranslationKeysInFile('app/Example.php', $translation_calls))->toBeEmpty();
+    })->with([
+        'function not in the config' => ["t('messages.welcome')", []],
+        'namespaced function not in the config' => ["use function App\\Support\\t;\n\nt('messages.welcome')", ['t']],
+        'static method of another class' => ["\\App\\Support\\Other::translate('messages.welcome')", ['App\\Support\\Translator::translate']],
+        'other static method' => ["\\App\\Support\\Translator::locale('messages.welcome')", ['App\\Support\\Translator::translate']],
+        'unqualified class not imported' => ["Translator::translate('messages.welcome')", ['App\\Support\\Translator::translate']],
+        'instance method' => ["\$translator->translate('messages.welcome')", ['App\\Support\\Translator::translate']],
+        'missing argument at the position' => ["t_for('messages.welcome')", ['t_for' => 1]],
+        'named argument' => ["t_for(key: 'messages.welcome', locale: 'it')", ['t_for' => 1]],
+        'unpacked argument' => ['t(...$arguments)', ['t']],
+        'first class callable' => ['t(...)', ['t']],
     ]);
 });

@@ -219,6 +219,35 @@ describe('dynamic keys config', function (): void {
     });
 });
 
+describe('translation calls', function (): void {
+    it('fails when the translation_calls config is not an array', function (): void {
+        config(['translation-audit.translation_calls' => 't']);
+
+        artisan(AuditTranslations::class)
+            ->expectsOutputToContain('The "translation_calls" config must be an array.')
+            ->assertExitCode(Command::INVALID);
+    });
+
+    it('fails on an invalid entry of the translation_calls config', function (): void {
+        config(['translation-audit.translation_calls' => ['App\Support\Translator->translate']]);
+
+        artisan(AuditTranslations::class)
+            ->expectsOutputToContain('The "App\Support\Translator->translate" entry of the "translation_calls" config must be a function name')
+            ->assertExitCode(Command::INVALID);
+    });
+
+    it('audits the keys of the custom translation calls', function (): void {
+        putJsonTranslations('en', ['Hello' => 'Hello', 'Bye' => 'Bye', 'Unused' => 'Unused']);
+        putJsonTranslations('it', ['Hello' => 'Ciao']);
+        putFile('app/Example.php', "<?php t('Hello'); \\App\\Support\\Translator::translateFor('it', 'Bye');");
+        config(['translation-audit.translation_calls' => ['t', 'App\Support\Translator::translateFor' => 1]]);
+
+        auditAsJson(['--unused' => true])
+            ->expectsOutput(resultJson(['app/Example.php' => ['Bye' => ['it']]], ['en' => ['lang/en.json' => ['Unused' => 'Unused']]]))
+            ->assertFailed();
+    });
+});
+
 describe('resolvers', function (): void {
     beforeEach(function (): void {
         putFile('lang/en/orders.php', "<?php return ['title' => 'Orders', 'status' => ['pending-payment' => 'Pending payment', 'shipped' => 'Shipped', 'cancelled' => 'Cancelled']];");

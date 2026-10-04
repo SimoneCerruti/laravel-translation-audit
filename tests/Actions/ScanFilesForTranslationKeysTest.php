@@ -6,6 +6,7 @@ use Illuminate\Support\Collection;
 use Symfony\Component\Finder\SplFileInfo;
 use TranslationAudit\Actions\ScanFilesForTranslationKeys;
 use TranslationAudit\Data\UsedTranslationKey;
+use TranslationAudit\Support\TranslationCalls;
 
 /**
  * @param  list<string>  $relative_paths
@@ -19,7 +20,7 @@ it('returns the translation keys used in each file with its relative path', func
     putFile('app/First.php', "<?php __('Hello'); __('Bye');");
     putFile('app/Second.php', "<?php __('Hello');");
 
-    $translation_keys = app(ScanFilesForTranslationKeys::class)->handle(filesToScan(['app/First.php', 'app/Second.php']));
+    $translation_keys = app(ScanFilesForTranslationKeys::class)->handle(filesToScan(['app/First.php', 'app/Second.php']), TranslationCalls::fromConfig([]));
 
     expect($translation_keys->all())->toEqual([
         new UsedTranslationKey('app/First.php', 'Hello'),
@@ -33,7 +34,7 @@ it('calls the callback after each scanned file with the file and its index', fun
     putFile('app/Second.php', '<?php');
     $scanned = [];
 
-    app(ScanFilesForTranslationKeys::class)->handle(filesToScan(['app/First.php', 'app/Second.php']), function (SplFileInfo $file, int $index) use (&$scanned): void {
+    app(ScanFilesForTranslationKeys::class)->handle(filesToScan(['app/First.php', 'app/Second.php']), TranslationCalls::fromConfig([]), function (SplFileInfo $file, int $index) use (&$scanned): void {
         $scanned[$index] = $file->getRelativePathname();
     });
 
@@ -46,7 +47,7 @@ it('fails naming the file that cannot be scanned, without calling the callback f
     $scanned = [];
 
     expect(function () use (&$scanned): void {
-        app(ScanFilesForTranslationKeys::class)->handle(filesToScan(['app/First.php', 'app/Broken.php']), function (SplFileInfo $file) use (&$scanned): void {
+        app(ScanFilesForTranslationKeys::class)->handle(filesToScan(['app/First.php', 'app/Broken.php']), TranslationCalls::fromConfig([]), function (SplFileInfo $file) use (&$scanned): void {
             $scanned[] = $file->getRelativePathname();
         });
     })->toThrow(RuntimeException::class, 'Unable to scan app/Broken.php: Syntax error')
