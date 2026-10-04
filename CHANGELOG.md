@@ -2,10 +2,6 @@
 
 ## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.8.0...HEAD)
 
-### Enhancements
-
-- Add the `resolvers` config, listing the classes implementing the `TranslationAudit\Contracts\TranslationKeyResolver` contract, resolved from the container. Each resolver returns the translation keys the app builds at runtime by custom logic, like the label keys derived from the cases of an enum, which are audited as used in a file named after the resolver class. Its `covers()` method maps the glob pattern of the files to the patterns of the dynamic keys it replaces, which are no longer audited by their pattern.
-
 ## [v0.8.0](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.7.0...v0.8.0) - 2026-10-04
 
 ### Enhancements
