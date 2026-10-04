@@ -1,6 +1,14 @@
 # Release Notes
 
-## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.8.0...HEAD)
+## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.9.0...HEAD)
+
+### Enhancements
+
+- Add the `translation_calls` config, listing the custom translation functions, like `t`, and static methods, like `App\Support\Translator::translate`, whose keys are audited besides those of Laravel's own translation calls. A call takes the key as its first argument, or as the argument at the position it is mapped to, like `'trans_for' => 1`. Namespaced functions, imported classes and facade aliases are resolved, so the calls in the Blade views are detected too
+- Detect the key passed by the named `key` argument to Laravel's translation calls, like `trans(replace: [...], key: 'messages.welcome')`
+- List the keys used in a file in the order they appear, instead of grouping them by the kind of translation call
+
+## [v0.9.0](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.8.0...v0.9.0) - 2026-10-04
 
 ### Enhancements
 
