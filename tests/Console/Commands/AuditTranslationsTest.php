@@ -7,6 +7,7 @@ use Symfony\Component\Console\Command\Command;
 use TranslationAudit\Console\Commands\AuditTranslations;
 use TranslationAudit\Enums\DisplayFormat;
 use TranslationAudit\Enums\SaveFormat;
+use TranslationAudit\Tests\Fixtures\OrderStatusLabelResolver;
 
 use function Pest\Laravel\artisan;
 use function Pest\Laravel\travelTo;
@@ -215,6 +216,68 @@ describe('dynamic keys config', function (): void {
         artisan(AuditTranslations::class)
             ->expectsOutputToContain('The values of the "payments.*" pattern in the "dynamic_keys" config must be a backed enum class, or a non-empty list of non-empty strings or integers.')
             ->assertExitCode(Command::INVALID);
+    });
+});
+
+describe('resolvers', function (): void {
+    beforeEach(function (): void {
+        putFile('lang/en/orders.php', "<?php return ['title' => 'Orders', 'status' => ['pending-payment' => 'Pending payment', 'shipped' => 'Shipped', 'cancelled' => 'Cancelled']];");
+        putFile('lang/it/orders.php', "<?php return ['title' => 'Ordini', 'status' => ['pending-payment' => 'In attesa di pagamento']];");
+        putFile('app/Enums/OrderStatus.php', '<?php __(\'orders.title\'); __(\'orders.status.\'.str($this->value)->replace(\'_\', \'-\'));');
+    });
+
+    it('fails when the resolvers config is not an array', function (): void {
+        config(['translation-audit.resolvers' => OrderStatusLabelResolver::class]);
+
+        artisan(AuditTranslations::class)
+            ->expectsOutputToContain('The "resolvers" config must be an array.')
+            ->assertExitCode(Command::INVALID);
+    });
+
+    it('fails when the resolvers config contains something other than a resolver class', function (): void {
+        config(['translation-audit.resolvers' => [stdClass::class]]);
+
+        artisan(AuditTranslations::class)
+            ->expectsOutputToContain('The "resolvers" config must contain only classes implementing the TranslationAudit\Contracts\TranslationKeyResolver contract.')
+            ->assertExitCode(Command::INVALID);
+    });
+
+    it('fails naming the resolver unable to resolve its keys', function (): void {
+        config(['translation-audit.resolvers' => [OrderStatusLabelResolver::class]]);
+        app()->bind(OrderStatusLabelResolver::class, fn (): never => throw new LogicException('The enum is missing.'));
+
+        artisan(AuditTranslations::class)
+            ->expectsOutputToContain('Unable to resolve the translation keys with '.OrderStatusLabelResolver::class.': The enum is missing.')
+            ->assertFailed();
+    });
+
+    it('audits the dynamic keys covered by no resolver by their pattern', function (): void {
+        auditAsJson(['--unused' => true])
+            ->expectsOutput(resultJson(
+                ['app/Enums/OrderStatus.php' => ['orders.status.shipped' => ['it'], 'orders.status.cancelled' => ['it']]],
+                [],
+            ))
+            ->assertFailed();
+    });
+
+    it('audits the resolved keys in place of the dynamic keys they cover', function (): void {
+        config(['translation-audit.resolvers' => [OrderStatusLabelResolver::class]]);
+
+        auditAsJson(['--unused' => true])
+            ->expectsOutput(resultJson(
+                [OrderStatusLabelResolver::class => ['orders.status.shipped' => ['it']]],
+                ['en' => ['lang/en/orders.php' => ['orders.status.cancelled' => 'Cancelled']]],
+            ))
+            ->assertFailed();
+    });
+
+    it('keeps auditing the static keys of the covered files', function (): void {
+        config(['translation-audit.resolvers' => [OrderStatusLabelResolver::class]]);
+        putFile('lang/it/orders.php', "<?php return ['status' => ['pending-payment' => 'In attesa di pagamento', 'shipped' => 'Spedito']];");
+
+        auditAsJson()
+            ->expectsOutput(resultJson(['app/Enums/OrderStatus.php' => ['orders.title' => ['it']]]))
+            ->assertFailed();
     });
 });
 

@@ -88,6 +88,55 @@ When you know the values a dynamic key can take, list them in the `dynamic_keys`
 
 A pattern has a single asterisk, in place of the dynamic part of the key.
 
+## Custom Resolvers
+
+Some keys are built by logic that a scan can't follow, and that a list of values can't describe, like a label key derived from the enum case:
+
+```php
+trait HasLabel
+{
+    public function label(): string
+    {
+        return __('orders.status.'.str($this->value)->replace('_', '-'));
+    }
+}
+```
+
+For these, write a resolver: a class implementing `TranslationAudit\Contracts\TranslationKeyResolver`, which returns the keys the app uses at runtime, and the dynamic keys they replace:
+
+```php
+use TranslationAudit\Contracts\TranslationKeyResolver;
+
+class OrderStatusLabelKeys implements TranslationKeyResolver
+{
+    public function resolve(): iterable
+    {
+        foreach (OrderStatus::cases() as $case) {
+            yield 'orders.status.'.str($case->value)->replace('_', '-');
+        }
+    }
+
+    public function covers(): array
+    {
+        return ['app/Enums/Concerns/HasLabel.php' => 'orders.status.*'];
+    }
+}
+```
+
+Then list it in the `resolvers` config:
+
+```php
+'resolvers' => [
+    App\Translations\OrderStatusLabelKeys::class,
+],
+```
+
+The resolvers are resolved from the container, so their constructor can take any dependency. The keys they return are audited as used in a file named after the resolver class, which is where their missing translations are reported. A resolver returns the keys, not their translations.
+
+`covers()` maps a glob pattern of the files, relative to the project root, to the pattern, or the list of patterns, of the dynamic keys the resolver replaces. Those dynamic keys are dropped, so a translation matching them but not among the resolved keys is reported as unused, and removed by the purge. The other keys of the covered files are still audited. Return `[]` when the resolver replaces no dynamic key.
+
+Keys without any fixed text, like `__($key)`, are skipped by the scan, so a resolver returning the keys they use needs no `covers()`.
+
 ## Removing Unused Translations
 
 Once you know which translations are unused, you can remove them from your `lang` files in one go. Start with a dry run to see what would be removed, without touching any file:
@@ -181,6 +230,7 @@ Most options have a matching config value, and the option always wins for a sing
 | `ignore_locales` | The locales to leave out, e.g. `['en']` when your keys are the English text. |
 | `ignore_keys` | The keys to leave out, for every locale or only for some. |
 | `dynamic_keys` | The values of the [dynamic keys](#dynamic-keys), to audit each value as a key of its own. |
+| `resolvers` | The [custom resolvers](#custom-resolvers) of the keys built at runtime by your own logic. |
 | `unused_ignore_paths` | The translation files never reported as unused, nor removed. |
 
 To ignore a key everywhere, list it on its own. To ignore it only for some locales, map it to them:

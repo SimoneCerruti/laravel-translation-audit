@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Console\Command\Command;
 use TranslationAudit\Console\Commands\PurgeUnusedTranslations;
+use TranslationAudit\Tests\Fixtures\OrderStatusLabelResolver;
 
 use function Pest\Laravel\artisan;
 
@@ -117,6 +118,18 @@ describe('purge', function (): void {
             ->assertSuccessful();
 
         expect(File::getRequire(lang_path('it/messages.php')))->toBe(['welcome' => 'Benvenuto', 'nested' => ['used' => 'Usato']]);
+    });
+
+    it('removes the translations matching a dynamic key covered by a resolver but not among its keys', function (): void {
+        putFile('lang/it/orders.php', "<?php return ['status' => ['pending-payment' => 'In attesa di pagamento', 'cancelled' => 'Annullato']];");
+        putFile('app/Enums/OrderStatus.php', '<?php __(\'orders.status.\'.str($this->value)->replace(\'_\', \'-\'));');
+        config(['translation-audit.resolvers' => [OrderStatusLabelResolver::class]]);
+
+        purgeAsJson()
+            ->expectsOutputToContain('"lang/it/orders.php":{"orders.status.cancelled":"Annullato"}')
+            ->assertSuccessful();
+
+        expect(File::getRequire(lang_path('it/orders.php')))->toBe(['status' => ['pending-payment' => 'In attesa di pagamento']]);
     });
 
     it('leaves the ignored locales and keys untouched', function (): void {
