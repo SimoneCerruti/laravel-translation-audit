@@ -1,6 +1,12 @@
 # Release Notes
 
-## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.9.0...HEAD)
+## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.10.0...HEAD)
+
+### Enhancements
+
+- Add the `additional_keys` config, listing the translation keys to audit even though the scan can't detect them, like those used only by the frontend. They are audited as used in `config/translation-audit.php`, so they are checked as missing in every locale, and never reported as unused nor purged. A key with an asterisk in place of each dynamic part, like `payments.*`, is audited as a dynamic key
+
+## [v0.10.0](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.9.0...v0.10.0) - 2026-10-05
 
 ### Enhancements
 
