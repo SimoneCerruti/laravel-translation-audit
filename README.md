@@ -83,7 +83,7 @@ The audit reads the keys passed to Laravel's own translation calls: `__()`, `tra
 
 A function or static method listed on its own takes the key as its first argument. When the key comes later, map the call to the position of its argument, starting from 0. Name the functions and classes in full, as the facade aliases used in the Blade views, like `Lang`, are resolved to their class.
 
-Only calls passing the key by position are read, not by a named argument. Calls on an instance, like `$translator->translate('messages.welcome')`, can't be followed by the scan: list the keys they use in `ignore_keys`, or return them from a [custom resolver](#custom-resolvers). A custom Blade directive is read through the code it compiles to, so `@t('messages.welcome')` compiling to `t('messages.welcome')` only needs `t` in the config.
+Only calls passing the key by position are read, not by a named argument. Calls on an instance, like `$translator->translate('messages.welcome')`, can't be followed by the scan: list the keys they use in [`additional_keys`](#additional-keys), or return them from a [custom resolver](#custom-resolvers). A custom Blade directive is read through the code it compiles to, so `@t('messages.welcome')` compiling to `t('messages.welcome')` only needs `t` in the config.
 
 ## Dynamic Keys
 
@@ -93,7 +93,7 @@ Keys built at runtime, like `__("payments.{$method}")` or `__('payments.'.$metho
 - a translation matching the pattern in one locale is reported as missing in the locales without it, e.g. `payments.paypal` defined in `en` but not in `it`;
 - when no locale has a translation matching the pattern, the pattern itself is reported as missing.
 
-To leave a dynamic key out, list its pattern in `ignore_keys`, e.g. `'payments.*'`. Keys without any fixed text, like `__($key)`, are skipped: list the translations they use in `ignore_keys`.
+To leave a dynamic key out, list its pattern in `ignore_keys`, e.g. `'payments.*'`. Keys without any fixed text, like `__($key)`, are skipped: list the translations they use in [`additional_keys`](#additional-keys).
 
 When you know the values a dynamic key can take, list them in the `dynamic_keys` config, as a backed enum or a list. Each value is then audited as a key of its own: `payments.card` is reported as missing wherever it is, and a `payments.*` translation that isn't among the values is reported as unused, and removed by the purge.
 
@@ -154,6 +154,19 @@ The resolvers are resolved from the container, so their constructor can take any
 `covers()` maps a glob pattern of the files, relative to the project root, to the pattern, or the list of patterns, of the dynamic keys the resolver replaces. Those dynamic keys are dropped, so a translation matching them but not among the resolved keys is reported as unused, and removed by the purge. The other keys of the covered files are still audited. Return `[]` when the resolver replaces no dynamic key.
 
 Keys without any fixed text, like `__($key)`, are skipped by the scan, so a resolver returning the keys they use needs no `covers()`.
+
+## Additional Keys
+
+Some keys never appear in the scanned files, like those used only by your frontend, or read from the database. List them in the `additional_keys` config to audit them anyway:
+
+```php
+'additional_keys' => [
+    'messages.welcome',
+    'payments.*',      // audited as a dynamic key
+],
+```
+
+The additional keys are audited as used in `config/translation-audit.php`, which is where their missing translations are reported. They are never reported as unused, nor removed by the purge. A key with an asterisk in place of each dynamic part, like `payments.*`, is audited as a [dynamic key](#dynamic-keys), expanded by the `dynamic_keys` config when it lists its values. `ignore_keys` still applies to them.
 
 ## Removing Unused Translations
 
@@ -248,6 +261,7 @@ Most options have a matching config value, and the option always wins for a sing
 | `ignore_locales` | The locales to leave out, e.g. `['en']` when your keys are the English text. |
 | `translation_calls` | Your own [translation functions and static methods](#custom-translation-calls), besides Laravel's. |
 | `ignore_keys` | The keys to leave out, for every locale or only for some. |
+| `additional_keys` | The [keys to audit](#additional-keys) even though the scan can't detect them. |
 | `dynamic_keys` | The values of the [dynamic keys](#dynamic-keys), to audit each value as a key of its own. |
 | `resolvers` | The [custom resolvers](#custom-resolvers) of the keys built at runtime by your own logic. |
 | `unused_ignore_paths` | The translation files never reported as unused, nor removed. |

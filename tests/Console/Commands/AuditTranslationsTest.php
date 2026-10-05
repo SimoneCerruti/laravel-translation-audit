@@ -219,6 +219,67 @@ describe('dynamic keys config', function (): void {
     });
 });
 
+describe('additional keys', function (): void {
+    it('fails when the additional_keys config is not an array', function (): void {
+        config(['translation-audit.additional_keys' => 'Hello']);
+
+        artisan(AuditTranslations::class)
+            ->expectsOutputToContain('The "additional_keys" config must be an array.')
+            ->assertExitCode(Command::INVALID);
+    });
+
+    it('fails on an invalid entry of the additional_keys config', function (): void {
+        config(['translation-audit.additional_keys' => ['*']]);
+
+        artisan(AuditTranslations::class)
+            ->expectsOutputToContain('The "additional_keys" config must contain only keys, or patterns of dynamic keys with an asterisk in place of each dynamic part and some static text.')
+            ->assertExitCode(Command::INVALID);
+    });
+
+    it('audits the additional keys as used in the config file', function (): void {
+        putJsonTranslations('en', ['Hello' => 'Hello', 'Bye' => 'Bye', 'Unused' => 'Unused']);
+        putJsonTranslations('it', ['Hello' => 'Ciao']);
+        putFile('app/Example.php', "<?php __('Hello');");
+        config(['translation-audit.additional_keys' => ['Bye', 'Hello']]);
+
+        auditAsJson(['--unused' => true])
+            ->expectsOutput(resultJson(['config/translation-audit.php' => ['Bye' => ['it']]], ['en' => ['lang/en.json' => ['Unused' => 'Unused']]]))
+            ->assertFailed();
+    });
+
+    it('audits an additional pattern as a dynamic key', function (): void {
+        putFile('lang/en/payments.php', "<?php return ['card' => 'Card', 'paypal' => 'PayPal'];");
+        putFile('lang/it/payments.php', "<?php return ['card' => 'Carta'];");
+        config(['translation-audit.additional_keys' => ['payments.*', 'status.*']]);
+
+        auditAsJson(['--unused' => true])
+            ->expectsOutput(resultJson(['config/translation-audit.php' => ['payments.paypal' => ['it'], 'status.*' => ['en', 'it']]], []))
+            ->assertFailed();
+    });
+
+    it('expands an additional pattern with the values in the dynamic_keys config', function (): void {
+        putFile('lang/en/payments.php', "<?php return ['card' => 'Card', 'paypal' => 'PayPal'];");
+        putFile('lang/it/payments.php', "<?php return ['card' => 'Carta', 'paypal' => 'PayPal'];");
+        config(['translation-audit.additional_keys' => ['payments.*'], 'translation-audit.dynamic_keys' => ['payments.*' => ['card', 'cash']]]);
+
+        auditAsJson(['--unused' => true])
+            ->expectsOutput(resultJson(
+                ['config/translation-audit.php' => ['payments.cash' => ['en', 'it']]],
+                ['en' => ['lang/en/payments.php' => ['payments.paypal' => 'PayPal']], 'it' => ['lang/it/payments.php' => ['payments.paypal' => 'PayPal']]],
+            ))
+            ->assertFailed();
+    });
+
+    it('skips the ignored additional keys', function (): void {
+        putJsonTranslations('en', ['Hello' => 'Hello']);
+        config(['translation-audit.additional_keys' => ['Hello', 'Bye'], 'translation-audit.ignore_keys' => ['Bye', 'Hello' => ['it']]]);
+
+        auditAsJson()
+            ->expectsOutput(resultJson([]))
+            ->assertSuccessful();
+    });
+});
+
 describe('translation calls', function (): void {
     it('fails when the translation_calls config is not an array', function (): void {
         config(['translation-audit.translation_calls' => 't']);

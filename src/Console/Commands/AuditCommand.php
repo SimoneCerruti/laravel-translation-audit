@@ -109,15 +109,18 @@ abstract class AuditCommand extends Command {
     }
 
     /**
-     * Find the files to scan and scan them for the translation keys they use, expanding the dynamic keys with values in the config,
-     * then replacing the dynamic keys covered by the resolvers with the keys they resolve.
+     * Find the files to scan and scan them for the translation keys they use, adding the additional keys in the config,
+     * expanding the dynamic keys with values in the config, then replacing the dynamic keys covered by the resolvers with the keys they resolve.
      *
      * @return Collection<int, UsedTranslationKey>
      */
     protected function findTranslationKeys(): Collection {
         $files = app(FindFilesToScan::class)->handle($this->shared_config->scan_paths, $this->shared_config->ignore_paths, $this->shared_config->follow_links, $this->shared_config->ignore_links);
 
-        return $this->shared_config->resolvers->apply($this->shared_config->dynamic_keys->expand($this->scanFiles($files)));
+        return $this->scanFiles($files)
+            ->pipe($this->shared_config->additional_keys->apply(...))
+            ->pipe($this->shared_config->dynamic_keys->expand(...))
+            ->pipe($this->shared_config->resolvers->apply(...));
     }
 
     /** Print the message on the error output, unless the output is for an agent. */

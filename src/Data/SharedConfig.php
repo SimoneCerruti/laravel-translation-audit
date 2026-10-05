@@ -9,6 +9,7 @@ use Laravel\AgentDetector\AgentDetector;
 use TranslationAudit\Actions\DetectAppLocales;
 use TranslationAudit\Enums\DisplayFormat;
 use TranslationAudit\Exceptions\InvalidConfigException;
+use TranslationAudit\Support\AdditionalKeys;
 use TranslationAudit\Support\CommandOptionHelper;
 use TranslationAudit\Support\DynamicKeyValues;
 use TranslationAudit\Support\IgnoredKeys;
@@ -36,6 +37,7 @@ readonly class SharedConfig {
         public array $ignore_locales,
         public array $unused_ignore_paths,
         public IgnoredKeys $ignore_keys,
+        public AdditionalKeys $additional_keys,
         public DynamicKeyValues $dynamic_keys,
         public TranslationKeyResolvers $resolvers,
         public TranslationCalls $translation_calls,
@@ -60,6 +62,7 @@ readonly class SharedConfig {
             ignore_locales: self::getConfigStringList('ignore_locales'),
             unused_ignore_paths: self::getConfigStringList('unused_ignore_paths'),
             ignore_keys: self::getIgnoreKeys(),
+            additional_keys: self::getAdditionalKeys(),
             dynamic_keys: self::getDynamicKeys(),
             resolvers: self::getResolvers(),
             translation_calls: self::getTranslationCalls(),
@@ -93,6 +96,19 @@ readonly class SharedConfig {
         }
 
         return IgnoredKeys::fromConfig($values);
+    }
+
+    /**
+     * @throws InvalidConfigException
+     */
+    private static function getAdditionalKeys(): AdditionalKeys {
+        try {
+            $values = config()->array('translation-audit.additional_keys');
+        } catch (InvalidArgumentException) {
+            throw new InvalidConfigException('The "additional_keys" config must be an array.');
+        }
+
+        return AdditionalKeys::fromConfig($values);
     }
 
     /**

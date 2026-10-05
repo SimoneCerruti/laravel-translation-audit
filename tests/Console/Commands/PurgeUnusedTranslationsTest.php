@@ -144,6 +144,18 @@ describe('purge', function (): void {
             ->and(json_decode(File::get(lang_path('en.json')), true))->toBe(['Hello' => 'Hello', 'Bye' => 'Bye']);
     });
 
+    it('leaves the additional keys untouched', function (): void {
+        config(['translation-audit.additional_keys' => ['Bye', 'messages.old', 'admin/*']]);
+
+        purgeAsJson()
+            ->expectsOutput('{"unused":{"it":{"lang/it/messages.php":{"messages.nested.unused":"Inutilizzato"}}}}')
+            ->assertSuccessful();
+
+        expect(File::getRequire(lang_path('it/messages.php')))->toBe(['welcome' => 'Benvenuto', 'old' => 'Vecchio', 'nested' => ['used' => 'Usato']])
+            ->and(File::getRequire(lang_path('it/admin/users.php')))->toBe(['title' => 'Utenti'])
+            ->and(json_decode(File::get(lang_path('en.json')), true))->toBe(['Hello' => 'Hello', 'Bye' => 'Bye']);
+    });
+
     it('leaves the ignored locales and keys untouched', function (): void {
         config(['translation-audit.ignore_locales' => ['en'], 'translation-audit.ignore_keys' => ['messages.old', 'admin/users.title' => ['it']]]);
 
