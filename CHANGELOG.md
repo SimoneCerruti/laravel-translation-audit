@@ -2,10 +2,6 @@
 
 ## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.11.0...HEAD)
 
-### Fixes
-
-- Skip Laravel's own translation files (`auth.php`, `pagination.php`, `passwords.php` and `validation.php`) in the unused audit also when the `lang` folder is in `resources`, as in the apps created before Laravel 9, so they are no longer reported as unused nor removed by `translation:purge-unused`. A published config keeps the old `lang/*/…` patterns: update them to `{lang,resources/lang}/*/…` to get the fix.
-
 ## [v0.11.0](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.10.0...v0.11.0) - 2026-10-07
 
 ### Enhancements
