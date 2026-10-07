@@ -1,6 +1,12 @@
 # Release Notes
 
-## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.11.1...HEAD)
+## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.11.2...HEAD)
+
+## [v0.11.2](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.11.1...v0.11.2) - 2026-10-07
+
+### Fixes
+
+- Count the translations nested in a key returning an array, like `settings.languages.en` for `__('settings.languages')`, as used, also when the key is dynamic, so they are no longer reported as unused nor removed by `translation:purge-unused`
 
 ## [v0.11.1](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.11.0...v0.11.1) - 2026-10-07
 
