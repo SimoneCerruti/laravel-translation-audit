@@ -1,6 +1,12 @@
 # Release Notes
 
-## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.10.0...HEAD)
+## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.11.0...HEAD)
+
+### Enhancements
+
+- Add the `hooks` config, listing the classes run before and after the commands, resolved from the container once per run. Their `before` method is called before the scan, and their `after` method once the result is printed, both through the container, taking the command as the `$command` argument, the result as the `$result` argument of `after`, and any other dependency. A listed class runs on every command, a class mapped to a command class, or a list of command classes, like `NotifyTeam::class => AuditTranslations::class`, only on those. A failing hook fails the command, naming the hook
+
+## [v0.11.0](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.10.0...v0.11.0) - 2026-10-07
 
 ### Enhancements
 
