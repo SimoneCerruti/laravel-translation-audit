@@ -155,6 +155,47 @@ The resolvers are resolved from the container, so their constructor can take any
 
 Keys without any fixed text, like `__($key)`, are skipped by the scan, so a resolver returning the keys they use needs no `covers()`.
 
+## Hooks
+
+To run your own code around a command, like pulling the translations from your translation service before the audit, or notifying your team of its result, write a hook: a class with a `before` method, called before the files are scanned, an `after` method, called once the result is printed, or both:
+
+```php
+use TranslationAudit\Console\Commands\AuditCommand;
+use TranslationAudit\Results\Contracts\Result;
+
+class NotifyTeam
+{
+    public function before(AuditCommand $command): void
+    {
+        // ...
+    }
+
+    public function after(Result $result, Slack $slack): void
+    {
+        if (! $result->isClean()) {
+            $slack->send('Some translations need attention.');
+        }
+    }
+}
+```
+
+Then list it in the `hooks` config. A listed hook runs on every command, a hook mapped to a command class, or a list of command classes, only on those:
+
+```php
+use TranslationAudit\Console\Commands\AuditTranslations;
+use TranslationAudit\Console\Commands\PurgeUnusedTranslations;
+
+'hooks' => [
+    App\Translations\PullTranslations::class,                         // every command
+    App\Translations\NotifyTeam::class => AuditTranslations::class,   // only translation:audit
+    App\Translations\CommitLangFiles::class => [PurgeUnusedTranslations::class],
+],
+```
+
+The hooks run in the order of the config. Each one is resolved from the container once per run, so its `before` and `after` methods share the instance. The methods are called through the container: the command is passed to the `$command` argument, or to an argument typed as the command class, the result to the `$result` argument of `after`, or to an argument typed as the result class, and any other dependency is injected.
+
+A hook throwing an exception fails the command with its message. A failing `before` hook stops the command before the scan, while a failing `after` hook runs once the command is done, so the purge has already removed the unused translations.
+
 ## Additional Keys
 
 Some keys never appear in the scanned files, like those used only by your frontend, or read from the database. List them in the `additional_keys` config to audit them anyway:
@@ -264,6 +305,7 @@ Most options have a matching config value, and the option always wins for a sing
 | `additional_keys` | The [keys to audit](#additional-keys) even though the scan can't detect them. |
 | `dynamic_keys` | The values of the [dynamic keys](#dynamic-keys), to audit each value as a key of its own. |
 | `resolvers` | The [custom resolvers](#custom-resolvers) of the keys built at runtime by your own logic. |
+| `hooks` | The [hooks](#hooks) run before and after the commands. |
 | `unused_ignore_paths` | The translation files never reported as unused, nor removed. |
 
 To ignore a key everywhere, list it on its own. To ignore it only for some locales, map it to them:

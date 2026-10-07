@@ -28,7 +28,8 @@ use function Safe\preg_split;
 /**
  * A command scanning the app for the translation keys it uses.
  * It resolves the shared config, then the config of the command, failing as invalid on an invalid one,
- * then performs the command, prints its result in the display format followed by its summary, and exits with the code of the result.
+ * then runs the before hooks, performs the command, prints its result in the display format followed by its summary, runs the after hooks,
+ * and exits with the code of the result, failing when a hook fails.
  *
  * @template TResult of Result
  */
@@ -66,9 +67,13 @@ abstract class AuditCommand extends Command {
         }
 
         try {
+            $this->shared_config->hooks->before($this);
+
             $result = $this->perform();
             $result->print($this->shared_config->display_format, $this->output);
             $this->printSummary($result);
+
+            $this->shared_config->hooks->after($this, $result);
 
             return $this->exitCode($result);
         } catch (Exception $e) {

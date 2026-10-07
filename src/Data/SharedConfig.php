@@ -10,6 +10,7 @@ use TranslationAudit\Actions\DetectAppLocales;
 use TranslationAudit\Enums\DisplayFormat;
 use TranslationAudit\Exceptions\InvalidConfigException;
 use TranslationAudit\Support\AdditionalKeys;
+use TranslationAudit\Support\AuditHooks;
 use TranslationAudit\Support\CommandOptionHelper;
 use TranslationAudit\Support\DynamicKeyValues;
 use TranslationAudit\Support\IgnoredKeys;
@@ -41,6 +42,7 @@ readonly class SharedConfig {
         public DynamicKeyValues $dynamic_keys,
         public TranslationKeyResolvers $resolvers,
         public TranslationCalls $translation_calls,
+        public AuditHooks $hooks,
         public bool $follow_links,
         public bool $output_for_agent,
         public DisplayFormat $display_format,
@@ -66,6 +68,7 @@ readonly class SharedConfig {
             dynamic_keys: self::getDynamicKeys(),
             resolvers: self::getResolvers(),
             translation_calls: self::getTranslationCalls(),
+            hooks: self::getHooks(),
             follow_links: $options_helper->booleanOrConfig('follow-links', 'translation-audit.always_follow_links', false),
             output_for_agent: $output_for_agent,
             display_format: $output_for_agent
@@ -148,6 +151,19 @@ readonly class SharedConfig {
         }
 
         return TranslationCalls::fromConfig($values);
+    }
+
+    /**
+     * @throws InvalidConfigException
+     */
+    private static function getHooks(): AuditHooks {
+        try {
+            $values = config()->array('translation-audit.hooks');
+        } catch (InvalidArgumentException) {
+            throw new InvalidConfigException('The "hooks" config must be an array.');
+        }
+
+        return AuditHooks::fromConfig($values);
     }
 
     /**

@@ -83,6 +83,13 @@ return [
     // [App\Translations\StatusLabelKeys::class].
     'resolvers' => [],
 
+    // Classes, resolved from the container, run before and after the command: their before method is called before the scan, and their
+    // after method once the result is printed. Each method is called through the container, taking the command as its $command argument,
+    // the result as the $result argument of the after method, and any other dependency. A listed class runs on every command, a class
+    // mapped to a command class, or a list of command classes, only on those, e.g.
+    // [App\Translations\SyncTranslations::class, App\Translations\NotifyTeam::class => TranslationAudit\Console\Commands\AuditTranslations::class].
+    'hooks' => [],
+
     // Format in which the audit result is displayed in the console, as a DisplayFormat case or its
     // value. Supported formats: json, list, table. The --display-format option overrides it.
     'display_format' => DisplayFormat::List,
