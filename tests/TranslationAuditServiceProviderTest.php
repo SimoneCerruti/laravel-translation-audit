@@ -23,7 +23,7 @@ it('merges the package config', function (): void {
         ->and(config('translation-audit.save_name'))->toBe('translation-audit-{now:d_M_Y_H_i}-{random:8}')
         ->and(config('translation-audit.display_format'))->toBe(DisplayFormat::List)
         ->and(config('translation-audit.audit_unused'))->toBeFalse()
-        ->and(config('translation-audit.unused_ignore_paths'))->toBe(['lang/*/auth.php', 'lang/*/pagination.php', 'lang/*/passwords.php', 'lang/*/validation.php']);
+        ->and(config('translation-audit.unused_ignore_paths'))->toBe(['{lang,resources/lang}/*/auth.php', '{lang,resources/lang}/*/pagination.php', '{lang,resources/lang}/*/passwords.php', '{lang,resources/lang}/*/validation.php']);
 });
 
 it('registers the artisan commands', function (string $name, string $class): void {

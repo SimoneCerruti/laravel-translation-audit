@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Lang;
 use Illuminate\Testing\PendingCommand;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
@@ -40,6 +41,14 @@ function populateLangDir(array $files = [], array $directories = []): void {
     foreach ($files as $file) {
         File::put("{$path}/{$file}", '{}');
     }
+}
+
+/** Move the lang folder to `resources/lang`, the location of the apps created before Laravel 9. */
+function useResourcesLangPath(): void {
+    app()->useLangPath(base_path('resources/lang'));
+    app()->forgetInstance('translation.loader');
+    app()->forgetInstance('translator');
+    Lang::clearResolvedInstance('translator');
 }
 
 /** Write a file relative to the application base path, creating missing directories. */

@@ -57,11 +57,11 @@ return [
     // Whether to also audit for unused translations, defined in the "lang" folder but used in none of the scanned files. The --unused option overrides it.
     'audit_unused' => false,
 
-    // Glob patterns, relative to the project root, of the translation files to leave out of the unused audit. By default the files whose keys Laravel itself uses.
+    // Glob patterns, relative to the project root, of the translation files to leave out of the unused audit. By default the files whose keys Laravel itself uses, in the "lang" folder or, for the apps created before Laravel 9, in the "resources/lang" one.
     'unused_ignore_paths' => [
-        'lang/*/auth.php',
-        'lang/*/pagination.php',
-        'lang/*/passwords.php',
-        'lang/*/validation.php',
+        '{lang,resources/lang}/*/auth.php',
+        '{lang,resources/lang}/*/pagination.php',
+        '{lang,resources/lang}/*/passwords.php',
+        '{lang,resources/lang}/*/validation.php',
     ],
 ];

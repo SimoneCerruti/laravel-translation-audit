@@ -97,6 +97,24 @@ describe('purge', function (): void {
             ->and(File::getRequire(lang_path('it/validation.php')))->toBe(['required' => 'Obbligatorio']);
     });
 
+    it('leaves the files Laravel uses untouched when the lang folder is in the resources folder', function (): void {
+        useResourcesLangPath();
+        putFile('resources/lang/it/messages.php', "<?php return ['welcome' => 'Benvenuto', 'old' => 'Vecchio'];");
+
+        foreach (['auth', 'pagination', 'passwords', 'validation'] as $group) {
+            putFile("resources/lang/it/{$group}.php", "<?php return ['line' => 'Riga'];");
+        }
+
+        purgeAsJson()
+            ->expectsOutput('{"unused":{"it":{"resources/lang/it/messages.php":{"messages.old":"Vecchio"}}}}')
+            ->expectsOutput('1 unused translation purged.')
+            ->assertSuccessful();
+
+        foreach (['auth', 'pagination', 'passwords', 'validation'] as $group) {
+            expect(File::getRequire(lang_path("it/{$group}.php")))->toBe(['line' => 'Riga']);
+        }
+    });
+
     it('leaves the translations matching a dynamic key untouched', function (): void {
         putFile('app/Dynamic.php', '<?php __("messages.nested.{$key}"); __(\'admin/users.\'.$field);');
 

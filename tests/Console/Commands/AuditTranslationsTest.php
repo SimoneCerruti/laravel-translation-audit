@@ -878,6 +878,21 @@ describe('unused translations', function (): void {
             ->assertFailed();
     });
 
+    it('does not report the translations of the files Laravel uses when the lang folder is in the resources folder', function (): void {
+        useResourcesLangPath();
+        putFile('resources/lang/en.json', '{"Hello": "Hello"}');
+        putFile('resources/lang/it.json', '{"Hello": "Ciao"}');
+        putFile('resources/lang/it/messages.php', "<?php return ['welcome' => 'Benvenuto', 'nested' => ['used' => 'Usato']];");
+
+        foreach (['auth', 'pagination', 'passwords', 'validation'] as $group) {
+            putFile("resources/lang/it/{$group}.php", "<?php return ['line' => 'Riga'];");
+        }
+
+        auditAsJson(['--unused' => true])
+            ->expectsOutputToContain('"unused":{}')
+            ->assertFailed();
+    });
+
     it('reports the translations of the files Laravel uses when they are not ignored', function (): void {
         config(['translation-audit.unused_ignore_paths' => []]);
 
