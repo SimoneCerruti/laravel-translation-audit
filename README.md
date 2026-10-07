@@ -65,6 +65,8 @@ php artisan translation:audit --unused
 
 To check them on every run, set `audit_unused` to `true` in the config file.
 
+A key returning an array uses all the translations nested in it: with `__('settings.languages')`, every `settings.languages.*` translation counts as used.
+
 Laravel's own translation files (`auth.php`, `pagination.php`, `passwords.php` and `validation.php`) are skipped, since the framework uses them, whether your `lang` folder is at the project root or in `resources`. You can change this list with the `unused_ignore_paths` config.
 
 ## Custom Translation Calls

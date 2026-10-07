@@ -76,3 +76,33 @@ it('matches the dynamic keys literally, besides their dynamic parts', function (
         new Translation('aab', 'it', 'lang/it.json', 'AAB'),
     ]);
 });
+
+it('considers used the children of a key returning an array', function (): void {
+    putFile('lang/it/settings.php', "<?php return ['languages' => ['en' => 'Inglese', 'it' => ['short' => 'IT']], 'title' => 'Impostazioni'];");
+    putFile('lang/it/editor.php', "<?php return ['save' => 'Salva', 'cancel' => 'Annulla'];");
+    putFile('lang/it/orders.php', "<?php return ['status' => ['open' => 'Aperto'], 'total' => 'Totale'];");
+
+    $unused = app(DetectUnusedTranslations::class)->handle(
+        usedTranslationKeys(['app/Example.php' => ['settings.languages', 'editor']])
+            ->push(new UsedTranslationKey('app/Orders.php', new DynamicTranslationKey(['', '.status']))),
+        ['it'],
+        [],
+        IgnoredKeys::fromConfig([]),
+    );
+
+    expect($unused->all())->toEqual([
+        new Translation('orders.total', 'it', 'lang/it/orders.php', 'Totale'),
+        new Translation('settings.title', 'it', 'lang/it/settings.php', 'Impostazioni'),
+    ]);
+});
+
+it('does not consider used the JSON translations sharing the prefix of a used key', function (): void {
+    putJsonTranslations('it', ['Hello.' => 'Ciao.', 'Hello. World' => 'Ciao. Mondo']);
+
+    $unused = app(DetectUnusedTranslations::class)->handle(usedTranslationKeys(['app/Example.php' => ['Hello']]), ['it'], [], IgnoredKeys::fromConfig([]));
+
+    expect($unused->all())->toEqual([
+        new Translation('Hello.', 'it', 'lang/it.json', 'Ciao.'),
+        new Translation('Hello. World', 'it', 'lang/it.json', 'Ciao. Mondo'),
+    ]);
+});

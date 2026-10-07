@@ -19,6 +19,8 @@ final readonly class DetectUnusedTranslations {
     /**
      * Detect the translations defined in the translation files of each locale but used in none of the scanned files.
      * A translation matching a dynamic key is used, since the key can take its value at runtime.
+     * A translation of a PHP file is also used when a key used in a file or a dynamic key matches one of its parents,
+     * e.g. `messages.errors.title` for `__('messages.errors')`, since the translator returns the array of its children.
      *
      * @param  Collection<int, UsedTranslationKey>  $translation_keys  The keys used in the scanned files.
      * @param  array<string>  $locales
@@ -35,10 +37,29 @@ final readonly class DetectUnusedTranslations {
         return new Collection($locales)
             ->flatMap(fn (string $locale): Collection => $this->get_app_translations_for_locale->handle($locale))
             ->reject(fn (Translation $translation): bool => $this->isIgnoredPath($translation->file, $ignore_paths)
-                || $used_keys->has($translation->key)
-                || $dynamic_keys->contains(fn (DynamicTranslationKey $key): bool => $key->matches($translation->key))
+                || $this->isUsed($translation, $used_keys, $dynamic_keys)
                 || $ignored_keys->has($translation->key, $translation->locale))
             ->values();
+    }
+
+    /**
+     * @param  Collection<string, UsedTranslationKey>  $used_keys
+     * @param  Collection<int, DynamicTranslationKey>  $dynamic_keys
+     */
+    private function isUsed(Translation $translation, Collection $used_keys, Collection $dynamic_keys): bool {
+        $keys = [$translation->key];
+
+        // the keys of the JSON files are flat, so only those of the PHP files have parents.
+        if (! str_ends_with($translation->file, '.json')) {
+            $segments = explode('.', $translation->key);
+
+            for ($length = \count($segments) - 1; $length > 0; $length--) {
+                $keys[] = implode('.', \array_slice($segments, 0, $length));
+            }
+        }
+
+        return array_any($keys, fn (string $key): bool => $used_keys->has($key)
+            || $dynamic_keys->contains(fn (DynamicTranslationKey $dynamic_key): bool => $dynamic_key->matches($key)));
     }
 
     /** @param  array<string>  $ignore_paths */
