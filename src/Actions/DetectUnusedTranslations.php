@@ -32,7 +32,7 @@ final readonly class DetectUnusedTranslations {
         $dynamic_keys = $translation_keys
             ->map(fn (UsedTranslationKey $key): string|DynamicTranslationKey => $key->value)
             ->filter(fn (string|DynamicTranslationKey $key): bool => $key instanceof DynamicTranslationKey)
-            ->unique(fn (DynamicTranslationKey $key): string => json_encode($key->segments, JSON_THROW_ON_ERROR));
+            ->keyBy(fn (DynamicTranslationKey $key): string => json_encode($key->segments, JSON_THROW_ON_ERROR));
 
         return new Collection($locales)
             ->flatMap(fn (string $locale): Collection => $this->get_app_translations_for_locale->handle($locale))
@@ -44,7 +44,7 @@ final readonly class DetectUnusedTranslations {
 
     /**
      * @param  Collection<string, UsedTranslationKey>  $used_keys
-     * @param  Collection<int, DynamicTranslationKey>  $dynamic_keys
+     * @param  Collection<array-key, DynamicTranslationKey>  $dynamic_keys
      */
     private function isUsed(Translation $translation, Collection $used_keys, Collection $dynamic_keys): bool {
         $keys = [$translation->key];

@@ -27,7 +27,8 @@ final readonly class DetectMissingTranslations {
         $missing = new Collection;
         $dynamic_keys = [];
         // the same key used more than once in a file is detected once.
-        $unique_keys = $translation_keys->unique(fn (UsedTranslationKey $key): string => json_encode([$key->file, $key->value], JSON_THROW_ON_ERROR));
+        // keyBy deduplicates in linear time, unlike unique() with a callback, which is quadratic.
+        $unique_keys = $translation_keys->keyBy(fn (UsedTranslationKey $key): string => json_encode([$key->file, $key->value], JSON_THROW_ON_ERROR));
 
         foreach ($unique_keys as $key) {
             if ($key->value instanceof DynamicTranslationKey) {
@@ -53,7 +54,7 @@ final readonly class DetectMissingTranslations {
 
         // a key used both statically and dynamically in a file is detected once.
         return $missing
-            ->unique(fn (Translation $translation): string => json_encode([$translation->key, $translation->locale, $translation->file], JSON_THROW_ON_ERROR))
+            ->keyBy(fn (Translation $translation): string => json_encode([$translation->key, $translation->locale, $translation->file], JSON_THROW_ON_ERROR))
             ->values();
     }
 
