@@ -1,6 +1,16 @@
 # Release Notes
 
-## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.11.3...HEAD)
+## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.12.0...HEAD)
+
+## [v0.12.0](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.11.3...v0.12.0) - 2026-10-08
+
+### Enhancements
+
+- Add the `skipped` section to the JSON result, printed or saved, with the reason why each file skipped by the scan can't be scanned, keyed by its path. It's only present when a file is skipped
+
+### Fixes
+
+- Skip the files that can't be scanned, like a broken view or one using a Blade component that isn't registered, with a warning naming each of them, instead of failing the whole audit. The audit now exits by its result alone, so a broken file no longer fails it. `translation:purge-unused` removes nothing and fails while a file is skipped, since the translations it uses would be removed, unless it's a dry run
 
 ## [v0.11.3](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.11.2...v0.11.3) - 2026-10-08
 
