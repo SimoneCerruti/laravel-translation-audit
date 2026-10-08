@@ -17,8 +17,12 @@ readonly class PurgeUnusedTranslationsResult implements Result {
 
     /**
      * @param  Collection<int, Translation>  $unused  The unused translations, purged unless the command is a dry run.
+     * @param  array<string, string>  $skipped  The reason why each file skipped by the scan cannot be scanned, keyed by its path.
      */
-    public function __construct(public Collection $unused) {}
+    public function __construct(
+        public Collection $unused,
+        public array $skipped = [],
+    ) {}
 
     /** Whether no translation is unused. */
     public function isClean(): bool {
@@ -37,7 +41,13 @@ readonly class PurgeUnusedTranslationsResult implements Result {
         $unused = $this->groupUnusedByLocale($this->unused);
 
         // turning an empty section into stdClass so it gets encoded as an empty object, like a non-empty one.
-        $output->writeln(json_encode(['unused' => $unused->isEmpty() ? new stdClass : $unused], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), OutputInterface::OUTPUT_RAW);
+        $sections = ['unused' => $unused->isEmpty() ? new stdClass : $unused];
+
+        if ($this->skipped !== []) {
+            $sections['skipped'] = $this->skipped;
+        }
+
+        $output->writeln(json_encode($sections, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), OutputInterface::OUTPUT_RAW);
     }
 
     /** Print the result as a list, unless it is clean. */

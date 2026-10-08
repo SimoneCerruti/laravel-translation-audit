@@ -43,6 +43,17 @@ describe('dry run', function (): void {
             ->assertSuccessful();
     });
 
+    it('lists the unused translations with a warning for the files that cannot be scanned', function (): void {
+        config(['translation-audit.supported_locales' => ['en']]);
+        putFile('app/Broken.php', "<?php __('Bye'); function (");
+
+        purgeAsJson(['--dry-run' => true])
+            ->expectsOutputToContain('Unable to scan app/Broken.php: Syntax error')
+            ->expectsOutput('Skipped 1 file that cannot be scanned: the translations it uses are not audited.')
+            ->expectsOutputToContain('{"unused":{"en":{"lang/en.json":{"Bye":"Bye"}}},"skipped":{"app/Broken.php":"Syntax error, ')
+            ->assertSuccessful();
+    });
+
     it('fails when the dry run option is not a boolean', function (): void {
         artisan(PurgeUnusedTranslations::class, ['--dry-run' => 'yes'])
             ->expectsOutputToContain('The --dry-run option accepts only true or false.')
@@ -72,6 +83,28 @@ describe('purge', function (): void {
         purgeAsJson()
             ->expectsOutput('{"unused":{}}')
             ->expectsOutput('No unused translations found.')
+            ->assertSuccessful();
+    });
+
+    it('purges nothing and fails when a file cannot be scanned, since the translations it uses would look unused', function (): void {
+        putFile('app/Broken.php', "<?php __('Bye'); function (");
+        $files = ['lang/en.json', 'lang/it.json', 'lang/it/messages.php', 'lang/it/admin/users.php'];
+        $contents = array_map(fn (string $file): string => File::get(base_path($file)), $files);
+
+        purgeAsJson()
+            ->expectsOutputToContain('Unable to scan app/Broken.php: Syntax error')
+            ->expectsOutput('Nothing purged: the translations used by the skipped files would be purged too. Fix them, or add them to the ignore_paths config, then run the purge again.')
+            ->assertFailed();
+
+        expect(array_map(fn (string $file): string => File::get(base_path($file)), $files))->toBe($contents);
+    });
+
+    it('purges the unused translations once the files that cannot be scanned are ignored', function (): void {
+        config(['translation-audit.ignore_paths' => ['app/Broken.php']]);
+        putFile('app/Broken.php', '<?php function (');
+
+        purgeAsJson()
+            ->expectsOutput('4 unused translations purged.')
             ->assertSuccessful();
     });
 

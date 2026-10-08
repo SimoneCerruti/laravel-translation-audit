@@ -6,6 +6,7 @@ namespace TranslationAudit\Console\Commands;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use RuntimeException;
 use TranslationAudit\Actions\DetectUnusedTranslations;
 use TranslationAudit\Actions\PurgeTranslationsFromFile;
 use TranslationAudit\Data\DisplayMessage;
@@ -32,15 +33,27 @@ class PurgeUnusedTranslations extends AuditCommand {
         $this->config = PurgeUnusedTranslationsConfig::fromInput($this->options_helper);
     }
 
+    /**
+     * Detect the unused translations and purge them, unless it's a dry run.
+     * Nothing is purged when a file is skipped by the scan, since the translations it uses would look unused.
+     *
+     * @throws RuntimeException When a file is skipped by the scan, outside a dry run.
+     */
     protected function perform(): PurgeUnusedTranslationsResult {
+        $translation_keys = $this->findTranslationKeys();
+
+        if ($this->skipped_files !== [] && ! $this->config->is_dry_run) {
+            throw new RuntimeException('Nothing purged: the translations used by the skipped files would be purged too. Fix them, or add them to the ignore_paths config, then run the purge again.');
+        }
+
         $unused = app(DetectUnusedTranslations::class)->handle(
-            $this->findTranslationKeys(),
+            $translation_keys,
             $this->shared_config->locales(),
             $this->shared_config->unused_ignore_paths,
             $this->shared_config->ignore_keys,
         );
 
-        return new PurgeUnusedTranslationsResult($this->config->is_dry_run ? $unused : $this->purge($unused));
+        return new PurgeUnusedTranslationsResult($this->config->is_dry_run ? $unused : $this->purge($unused), $this->skipped_files);
     }
 
     /**

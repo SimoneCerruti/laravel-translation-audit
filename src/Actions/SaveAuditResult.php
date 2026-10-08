@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace TranslationAudit\Actions;
 
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
-use stdClass;
 use TranslationAudit\Data\SaveTarget;
 use TranslationAudit\Enums\SaveFormat;
 use TranslationAudit\Results\AuditTranslationsResult;
@@ -31,13 +29,6 @@ final class SaveAuditResult {
     }
 
     private function makeJsonResult(AuditTranslationsResult $result): string {
-        $sections = ['missing' => $result->missingByFile()];
-
-        if ($result->unused instanceof Collection) {
-            $sections['unused'] = $result->unusedByLocale();
-        }
-
-        // turning empty sections into stdClass in order to encode them as empty objects, like the non-empty ones.
-        return json_encode(array_map(fn (Collection $section): Collection|stdClass => $section->isEmpty() ? new stdClass : $section, $sections), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        return json_encode($result->jsonSections(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
 }

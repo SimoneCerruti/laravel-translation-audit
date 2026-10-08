@@ -28,6 +28,13 @@ it('prints a clean result only as json', function (DisplayFormat $format, string
     'table' => [DisplayFormat::Table, ''],
 ]);
 
+it('prints the reason why each skipped file cannot be scanned after the unused translations as json, keyed by its path', function (): void {
+    $result = new PurgeUnusedTranslationsResult(new Collection, ['app/Broken.php' => 'Syntax error, unexpected EOF on line 1']);
+
+    expect(printPurgeUnusedTranslationsResult($result, DisplayFormat::Json))
+        ->toBe('{"unused":{},"skipped":{"app/Broken.php":"Syntax error, unexpected EOF on line 1"}}'."\n");
+});
+
 it('prints the unused translations grouped by locale and file as json', function (): void {
     $result = new PurgeUnusedTranslationsResult(unusedTranslations([
         'en' => ['lang/en/messages.php' => ['messages.bye' => 'Bye']],

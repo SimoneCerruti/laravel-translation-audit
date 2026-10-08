@@ -266,6 +266,12 @@ php artisan translation:audit --display-format=json
 {"missing":{"app/Http/Controllers/HomeController.php":{"auth.failed":["it"],"messages.welcome":["en","it"]}}}
 ```
 
+When the scan [skips a file](#configuration), the JSON result, printed or saved, also has a `skipped` section, with the reason why each skipped file can't be scanned, keyed by its path:
+
+```json
+{"missing":{},"skipped":{"resources/views/kits/edit.blade.php":"Syntax error, unexpected '<' on line 2"}}
+```
+
 Only the result goes to the standard output, so `php artisan translation:audit --display-format=json | jq` works as expected. The progress bar, the summary and the messages are printed separately and stay in your terminal.
 
 Use `--no-progress` and `--no-summary` to hide the progress bar and the summary line.
@@ -319,6 +325,8 @@ To ignore a key everywhere, list it on its own. To ignore it only for some local
     'payments.*',     // a dynamic key, like __("payments.{$method}"), ignored by its pattern
 ],
 ```
+
+A file that can't be scanned, like a broken view or one using a Blade component that isn't registered, is skipped with a warning naming it, and the audit goes on with the other files. The JSON result lists it in its [`skipped` section](#output-formats). The translations it uses aren't audited, so they may be reported as unused: fix the file, or add it to `ignore_paths`. The purge removes nothing while a file is skipped, since it would remove the translations that file uses, but a dry run still lists them.
 
 Symbolic links aren't followed by default. Pass `--follow-links`, or set `always_follow_links` to `true`, to scan the files behind them too. `vendor` and `node_modules` are never followed.
 

@@ -35,6 +35,16 @@ it('prints the empty sections as empty objects', function (?array $unused, strin
     'with unused' => [[], '{"missing":{},"unused":{}}'],
 ]);
 
+it('prints the reason why each skipped file cannot be scanned after the other sections, keyed by its path, only when a file is skipped', function (): void {
+    $output = new BufferedOutput;
+
+    new AuditTranslationsResult(missingTranslations([]), skipped: ['app/Broken.php' => 'Syntax error, unexpected EOF on line 1'])
+        ->withUnused(unusedTranslations([]))
+        ->print(DisplayFormat::Json, $output);
+
+    expect($output->fetch())->toBe('{"missing":{},"unused":{},"skipped":{"app/Broken.php":"Syntax error, unexpected EOF on line 1"}}'.PHP_EOL);
+});
+
 it('prints the keys and files containing console tags verbatim', function (): void {
     $missing = ['app/<info>.php' => ['<error>Hello</error>' => ['en']]];
 

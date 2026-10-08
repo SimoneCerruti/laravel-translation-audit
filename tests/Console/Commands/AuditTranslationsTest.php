@@ -472,12 +472,32 @@ describe('file selection', function (): void {
             ->assertSuccessful();
     });
 
-    it('fails naming the file that cannot be parsed', function (): void {
+    it('skips the files that cannot be parsed with a warning naming them, auditing the others', function (): void {
+        putFile('app/Broken.php', '<?php function (');
+        putFile('resources/views/broken.blade.php', '<x-missing-component />');
+        putFile('app/Example.php', "<?php __('Hello');");
+
+        $output = auditWithSeparateOutputs(['--display-format' => 'json']);
+
+        $result = json_decode($output['output'], true, flags: JSON_THROW_ON_ERROR);
+
+        expect($output['exit_code'])->toBe(Command::FAILURE)
+            ->and($result['missing'])->toBe(['app/Example.php' => ['Hello' => ['en', 'it']]])
+            ->and(array_keys($result['skipped']))->toBe(['app/Broken.php', 'resources/views/broken.blade.php'])
+            ->and($result['skipped']['app/Broken.php'])->toStartWith('Syntax error')
+            ->and($output['error_output'])->toContain('Unable to scan app/Broken.php: Syntax error')
+            ->and($output['error_output'])->toContain('Unable to scan resources/views/broken.blade.php: ')
+            ->and($output['error_output'])->toContain('Skipped 2 files that cannot be scanned: the translations they use are not audited.');
+    });
+
+    it('succeeds when the files that can be scanned use no missing translation, warning for the skipped file', function (): void {
         putFile('app/Broken.php', '<?php function (');
 
         artisan(AuditTranslations::class)
             ->expectsOutputToContain('Unable to scan app/Broken.php: Syntax error')
-            ->assertFailed();
+            ->expectsOutput('Skipped 1 file that cannot be scanned: the translations it uses are not audited.')
+            ->expectsOutput('No missing translations found.')
+            ->assertSuccessful();
     });
 });
 
@@ -1342,16 +1362,18 @@ describe('output streams', function (): void {
             ->and($output['error_output'])->toContain($error);
     })->with([
         'invalid option' => [fn () => config(['translation-audit.disable_summary' => 'maybe']), Command::INVALID, 'disable_summary'],
-        'unparsable file' => [fn () => putFile('app/Broken.php', '<?php function ('), Command::FAILURE, 'Unable to scan app/Broken.php: Syntax error'],
     ]);
 
-    it('prints the scan errors on the error output', function (): void {
+    it('prints the warnings for the skipped files on the error output, also for an agent', function (array $parameters, string $result): void {
         putFile('app/Broken.php', '<?php function (');
 
-        $output = auditWithSeparateOutputs();
+        $output = auditWithSeparateOutputs($parameters);
 
-        expect($output['exit_code'])->toBe(Command::FAILURE)
-            ->and($output['output'])->toBeEmpty()
+        expect($output['exit_code'])->toBe(Command::SUCCESS)
+            ->and($output['output'])->toBe($result)
             ->and($output['error_output'])->toContain('Unable to scan app/Broken.php: Syntax error');
-    });
+    })->with([
+        'default' => [[], ''],
+        'for agent' => [['--for-agent' => true], '{"missing":{},"skipped":{"app/Broken.php":"Syntax error, unexpected EOF, expecting T_VARIABLE on line 1"}}'.PHP_EOL],
+    ]);
 });

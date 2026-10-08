@@ -34,17 +34,19 @@ readonly class AuditTranslationsResult implements Result {
     /**
      * @param  Collection<int, Translation>  $missing
      * @param  Collection<int, Translation>|null  $unused  The unused translations, null when they are not audited.
+     * @param  array<string, string>  $skipped  The reason why each file skipped by the scan cannot be scanned, keyed by its path.
      */
     public function __construct(
         public Collection $missing,
         public ?Collection $unused = null,
+        public array $skipped = [],
     ) {}
 
     /**
      * @param  Collection<int, Translation>  $unused
      */
     public function withUnused(Collection $unused): self {
-        return new self($this->missing, $unused);
+        return new self($this->missing, $unused, $this->skipped);
     }
 
     /** Whether no translation is missing and, when they are audited, none is unused. */
@@ -82,17 +84,28 @@ readonly class AuditTranslationsResult implements Result {
         };
     }
 
-    private function printJson(OutputInterface $output): void {
+    /**
+     * The sections of the json result: the missing translations, the unused ones when they are audited, and the skipped files when there are any.
+     *
+     * @return array<string, Collection<array-key, mixed>|stdClass>
+     */
+    public function jsonSections(): array {
         $sections = ['missing' => $this->missingByFile()];
 
         if ($this->unused instanceof Collection) {
             $sections['unused'] = $this->unusedByLocale();
         }
 
-        // turning empty sections into stdClass so they get encoded as empty objects, like the non-empty ones.
-        $sections = array_map(fn (Collection $section): Collection|stdClass => $section->isEmpty() ? new stdClass : $section, $sections);
+        if ($this->skipped !== []) {
+            $sections['skipped'] = new Collection($this->skipped);
+        }
 
-        $output->writeln(json_encode($sections, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), OutputInterface::OUTPUT_RAW);
+        // turning empty sections into stdClass so they get encoded as empty objects, like the non-empty ones.
+        return array_map(fn (Collection $section): Collection|stdClass => $section->isEmpty() ? new stdClass : $section, $sections);
+    }
+
+    private function printJson(OutputInterface $output): void {
+        $output->writeln(json_encode($this->jsonSections(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), OutputInterface::OUTPUT_RAW);
     }
 
     /** Print the result as a list, unless it is clean. */

@@ -7,6 +7,7 @@ namespace TranslationAudit\Console\Commands;
 use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 use RuntimeException;
 use Symfony\Component\Console\Formatter\OutputFormatter;
@@ -46,6 +47,13 @@ abstract class AuditCommand extends Command {
     protected CommandOptionHelper $options_helper;
 
     protected SharedConfig $shared_config;
+
+    /**
+     * The reason why each file skipped by the scan cannot be scanned, keyed by its path relative to the project root.
+     *
+     * @var array<string, string>
+     */
+    protected array $skipped_files = [];
 
     public function __construct() {
         $this->signature .= self::SHARED_OPTIONS;
@@ -114,7 +122,7 @@ abstract class AuditCommand extends Command {
     }
 
     /**
-     * Find the files to scan and scan them for the translation keys they use, adding the additional keys in the config,
+     * Find the files to scan and scan them for the translation keys they use, skipping the files that cannot be scanned with a warning, adding the additional keys in the config,
      * expanding the dynamic keys with values in the config, then replacing the dynamic keys covered by the resolvers with the keys they resolve.
      *
      * @return Collection<int, UsedTranslationKey>
@@ -142,12 +150,14 @@ abstract class AuditCommand extends Command {
     }
 
     /**
-     * Scan the files for the translation keys they use.
+     * Scan the files for the translation keys they use, then warn for each file skipped because it cannot be scanned, even for an agent.
      *
      * @param  Collection<int, SplFileInfo>  $files
      * @return Collection<int, UsedTranslationKey>
      */
     private function scanFiles(Collection $files): Collection {
+        $this->skipped_files = [];
+
         if ($files->isEmpty()) {
             return new Collection;
         }
@@ -158,20 +168,32 @@ abstract class AuditCommand extends Command {
         $progress_bar->setMessage($this->getRelativePath($files->first()));
         $progress_bar->start();
 
-        try {
-            $translation_keys = app(ScanFilesForTranslationKeys::class)->handle($files, $this->shared_config->translation_calls, function (SplFileInfo $file, int $index) use ($files, $progress_bar): void {
+        $warnings = [];
+
+        $translation_keys = app(ScanFilesForTranslationKeys::class)->handle(
+            $files,
+            $this->shared_config->translation_calls,
+            function (SplFileInfo $file, int $index) use ($files, $progress_bar): void {
                 $next_file = $files->get($index + 1);
                 $progress_bar->setMessage($next_file ? $this->getRelativePath($next_file) : '');
                 $progress_bar->advance();
-            });
-        } catch (RuntimeException $e) {
-            $progress_output->newLine(2);
-
-            throw $e;
-        }
+            },
+            function (SplFileInfo $file, RuntimeException $error) use (&$warnings): void {
+                $this->skipped_files[$this->getRelativePath($file)] = $error->getPrevious()?->getMessage() ?? $error->getMessage();
+                $warnings[] = $error->getMessage();
+            },
+        );
 
         $progress_bar->finish();
         $progress_output->newLine(2);
+
+        if ($warnings !== []) {
+            $count = \count($warnings);
+            $warnings[] = \sprintf('Skipped %d %s that cannot be scanned: the translations %s are not audited.', $count, Str::plural('file', $count), $count === 1 ? 'it uses' : 'they use');
+
+            $this->output->getErrorStyle()->writeln($this->formatMessage(new DisplayMessage(implode(PHP_EOL, $warnings), MessageSeverity::Warning)));
+            $this->output->getErrorStyle()->newLine();
+        }
 
         return $translation_keys;
     }

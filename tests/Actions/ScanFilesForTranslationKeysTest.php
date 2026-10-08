@@ -53,3 +53,28 @@ it('fails naming the file that cannot be scanned, without calling the callback f
     })->toThrow(RuntimeException::class, 'Unable to scan app/Broken.php: Syntax error')
         ->and($scanned)->toBe(['app/First.php']);
 });
+
+it('skips the files that cannot be scanned with the skipped files callback, calling it with the error naming the file', function (): void {
+    putFile('app/Broken.php', '<?php function (');
+    putFile('resources/views/broken.blade.php', '<x-missing-component />');
+    putFile('app/Second.php', "<?php __('Hello');");
+    $scanned = [];
+    $skipped = [];
+
+    $translation_keys = app(ScanFilesForTranslationKeys::class)->handle(
+        filesToScan(['app/Broken.php', 'resources/views/broken.blade.php', 'app/Second.php']),
+        TranslationCalls::fromConfig([]),
+        function (SplFileInfo $file) use (&$scanned): void {
+            $scanned[] = $file->getRelativePathname();
+        },
+        function (SplFileInfo $file, RuntimeException $error) use (&$skipped): void {
+            $skipped[$file->getRelativePathname()] = $error->getMessage();
+        },
+    );
+
+    expect($translation_keys->all())->toEqual([new UsedTranslationKey('app/Second.php', 'Hello')])
+        ->and($scanned)->toBe(['app/Broken.php', 'resources/views/broken.blade.php', 'app/Second.php'])
+        ->and(array_keys($skipped))->toBe(['app/Broken.php', 'resources/views/broken.blade.php'])
+        ->and($skipped['app/Broken.php'])->toStartWith('Unable to scan app/Broken.php: Syntax error')
+        ->and($skipped['resources/views/broken.blade.php'])->toStartWith('Unable to scan resources/views/broken.blade.php: ');
+});
