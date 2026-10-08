@@ -2,10 +2,6 @@
 
 ## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.12.1...HEAD)
 
-### Fixes
-
-- Remove only the lines of the unused translations from the PHP translation files in `translation:purge-unused`, along with the nested arrays left empty, instead of rewriting the files from scratch, so `declare(strict_types=1)`, the `use` statements, the comments, the formatting and the computed values, like `'Default ('.config('app.speed', 450).' kt)'`, which was written as fixed text, are left untouched. The nested keys with dots, like `'attributes' => ['transactions.*.amount' => …]`, are now removed too, instead of being skipped while still reported as unused. A PHP translation file that doesn't return a literal array, like `return array_merge(...)`, is left untouched, and so is a file whose purged source wouldn't return the same translations without the removed ones
-
 ## [v0.12.1](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.12.0...v0.12.1) - 2026-10-08
 
 ### Fixes
