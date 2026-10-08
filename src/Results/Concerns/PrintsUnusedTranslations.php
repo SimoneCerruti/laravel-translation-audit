@@ -42,9 +42,19 @@ trait PrintsUnusedTranslations {
     private function groupUnusedByLocale(Collection $unused): Collection {
         return $unused
             ->groupBy('locale')
-            ->map(fn (Collection $translations): Collection => $translations
-                ->groupBy('file')
-                ->map(fn (Collection $keys): Collection => $keys->mapWithKeys(fn (Translation $translation): array => [$translation->key => $translation->value])));
+            ->map($this->groupUnusedByFile(...));
+    }
+
+    /**
+     * The unused translation of each key of a locale, grouped by the path of the translation file defining it.
+     *
+     * @param  Collection<int, Translation>  $translations
+     * @return Collection<array-key, Collection<string, string|null>>
+     */
+    private function groupUnusedByFile(Collection $translations): Collection {
+        return $translations
+            ->groupBy('file')
+            ->map(fn (Collection $keys): Collection => $keys->mapWithKeys(fn (Translation $translation): array => [$translation->key => $translation->value]));
     }
 
     /**
