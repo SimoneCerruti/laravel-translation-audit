@@ -10,13 +10,16 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use stdClass;
+use Throwable;
+use TranslationAudit\Support\PhpTranslationFile;
 
 use function Safe\json_decode;
+use function Safe\tempnam;
 
 final class PurgeTranslationsFromFile {
     /**
      * Remove the translation keys from the JSON or PHP translation file, rewriting it only when a translation was removed.
-     * Only the string translations are removed. The PHP translation files lose their comments and formatting, and the nested arrays left empty are removed too.
+     * Only the string translations are removed. In the PHP translation files only their items are removed, along with the nested arrays left empty, leaving the rest of the source untouched.
      *
      * @param  string  $file  The path of the translation file, relative to the project root.
      * @param  Collection<int, string>  $keys  The keys keyed like the translator expects them, the group of the PHP translation files included.
@@ -63,15 +66,23 @@ final class PurgeTranslationsFromFile {
     }
 
     /**
+     * Remove the string translations from the source of the PHP translation file, leaving the rest of the source untouched.
+     * Nothing is removed from a file that does not return a literal array, or when the purged source would not hold the same translations without the removed ones.
+     *
      * @param  Collection<int, string>  $keys
      * @return Collection<string, string>
      */
     private function purgePhpFile(string $path, Collection $keys): Collection {
         $lines = File::getRequire($path);
-        $lines = \is_array($lines) ? $lines : [];
+        $lines = \is_array($lines) ? Arr::dot($lines) : [];
+        $file = PhpTranslationFile::parse(File::get($path));
         $group = $this->getGroup($path);
         /** @var Collection<string, string> $purged */
         $purged = new Collection;
+
+        if (! $file instanceof PhpTranslationFile) {
+            return $purged;
+        }
 
         foreach ($keys as $key) {
             if (! str_starts_with($key, "{$group}.")) {
@@ -79,40 +90,50 @@ final class PurgeTranslationsFromFile {
             }
 
             $line_key = Str::after($key, "{$group}.");
-            $value = Arr::get($lines, $line_key);
+            $value = $lines[$line_key] ?? null;
 
-            if (! \is_string($value)) {
+            if (! \is_string($value) || ! $file->has($line_key)) {
                 continue;
             }
 
             $purged->put($key, $value);
-            Arr::forget($lines, $line_key);
-            $this->forgetEmptyParents($lines, $line_key);
         }
 
-        if ($purged->isNotEmpty()) {
-            File::put($path, "<?php\n\nreturn {$this->exportArray($lines)};\n");
+        if ($purged->isEmpty()) {
+            return $purged;
         }
+
+        $line_keys = $purged->keys()->map(fn (string $key): string => Str::after($key, "{$group}."));
+        $source = $file->withoutKeys($line_keys);
+
+        $expected_lines = array_diff_key($lines, $line_keys->flip()->all());
+
+        if (! $this->evaluatesTo($source, $expected_lines)) {
+            return new Collection;
+        }
+
+        File::put($path, $source);
 
         return $purged;
     }
 
     /**
-     * Remove the parents of the forgotten key left empty, from the deepest one.
+     * Whether the PHP source, evaluated from a temporary file, returns the lines, like Arr::dot names them.
      *
      * @param  array<array-key, mixed>  $lines
      */
-    private function forgetEmptyParents(array &$lines, string $key): void {
-        $parent = $key;
+    private function evaluatesTo(string $source, array $lines): bool {
+        $temporary_path = tempnam(sys_get_temp_dir(), 'translation-audit-');
 
-        while (str_contains($parent, '.')) {
-            $parent = Str::beforeLast($parent, '.');
+        try {
+            File::put($temporary_path, $source);
+            $purged_lines = File::getRequire($temporary_path);
 
-            if (Arr::get($lines, $parent) !== []) {
-                return;
-            }
-
-            Arr::forget($lines, $parent);
+            return \is_array($purged_lines) && Arr::dot($purged_lines) === $lines;
+        } catch (Throwable) {
+            return false;
+        } finally {
+            File::delete($temporary_path);
         }
     }
 
@@ -121,29 +142,5 @@ final class PurgeTranslationsFromFile {
         $relative_path = Str::after(str_replace('\\', '/', $path), str_replace('\\', '/', lang_path()).'/');
 
         return Str::of($relative_path)->after('/')->beforeLast('.php')->toString();
-    }
-
-    /**
-     * Export the array as PHP code using the short array syntax, indented by four spaces at each level.
-     * Only the scalars are exported with var_export, since it would use the long array syntax.
-     *
-     * @param  array<array-key, mixed>  $array
-     */
-    private function exportArray(array $array, int $depth = 0): string {
-        if ($array === []) {
-            return '[]';
-        }
-
-        $indent = str_repeat('    ', $depth + 1);
-        $is_list = array_is_list($array);
-        $items = [];
-
-        foreach ($array as $key => $value) {
-            $exported_value = \is_array($value) ? $this->exportArray($value, $depth + 1) : var_export($value, true);
-
-            $items[] = $is_list ? "{$indent}{$exported_value}," : $indent.var_export($key, true)." => {$exported_value},";
-        }
-
-        return "[\n".implode("\n", $items)."\n".str_repeat('    ', $depth).']';
     }
 }
