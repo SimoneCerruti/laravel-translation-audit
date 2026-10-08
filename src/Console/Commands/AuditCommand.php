@@ -55,6 +55,13 @@ abstract class AuditCommand extends Command {
      */
     protected array $skipped_files = [];
 
+    /**
+     * The error naming each translation file skipped because it cannot be read, keyed by its path relative to the project root.
+     *
+     * @var array<string, RuntimeException>
+     */
+    private array $skipped_translation_files = [];
+
     public function __construct() {
         $this->signature .= self::SHARED_OPTIONS;
 
@@ -73,6 +80,8 @@ abstract class AuditCommand extends Command {
 
             return self::INVALID;
         }
+
+        $this->skipped_translation_files = [];
 
         try {
             $this->shared_config->hooks->before($this);
@@ -136,6 +145,31 @@ abstract class AuditCommand extends Command {
             ->pipe($this->shared_config->resolvers->apply(...));
     }
 
+    /** Skip the translation file that cannot be read, keeping the error naming it. */
+    protected function skipTranslationFile(string $path, RuntimeException $error): void {
+        $this->skipped_translation_files[$path] = $error;
+    }
+
+    /**
+     * Warn for each translation file skipped because it cannot be read, even for an agent, returning the reason why each file skipped by the scan or as a translation file is skipped, keyed by its path.
+     *
+     * @return array<string, string>
+     */
+    protected function warnForSkippedTranslationFiles(): array {
+        $errors = array_values($this->skipped_translation_files);
+
+        if ($errors !== []) {
+            $count = \count($errors);
+
+            $this->warnForSkippedFiles($errors, \sprintf('Skipped %d translation %s that cannot be read: %s translations are not audited.', $count, Str::plural('file', $count), $count === 1 ? 'its' : 'their'));
+        }
+
+        return [
+            ...$this->skipped_files,
+            ...array_map(fn (RuntimeException $error): string => $error->getPrevious()?->getMessage() ?? $error->getMessage(), $this->skipped_translation_files),
+        ];
+    }
+
     /** Print the message on the error output, unless the output is for an agent. */
     protected function printMessage(DisplayMessage $message): void {
         if ($this->shared_config->output_for_agent) {
@@ -168,7 +202,7 @@ abstract class AuditCommand extends Command {
         $progress_bar->setMessage($this->getRelativePath($files->first()));
         $progress_bar->start();
 
-        $warnings = [];
+        $errors = [];
 
         $translation_keys = app(ScanFilesForTranslationKeys::class)->handle(
             $files,
@@ -178,24 +212,35 @@ abstract class AuditCommand extends Command {
                 $progress_bar->setMessage($next_file ? $this->getRelativePath($next_file) : '');
                 $progress_bar->advance();
             },
-            function (SplFileInfo $file, RuntimeException $error) use (&$warnings): void {
+            function (SplFileInfo $file, RuntimeException $error) use (&$errors): void {
                 $this->skipped_files[$this->getRelativePath($file)] = $error->getPrevious()?->getMessage() ?? $error->getMessage();
-                $warnings[] = $error->getMessage();
+                $errors[] = $error;
             },
         );
 
         $progress_bar->finish();
         $progress_output->newLine(2);
 
-        if ($warnings !== []) {
-            $count = \count($warnings);
-            $warnings[] = \sprintf('Skipped %d %s that cannot be scanned: the translations %s are not audited.', $count, Str::plural('file', $count), $count === 1 ? 'it uses' : 'they use');
+        if ($errors !== []) {
+            $count = \count($errors);
 
-            $this->output->getErrorStyle()->writeln($this->formatMessage(new DisplayMessage(implode(PHP_EOL, $warnings), MessageSeverity::Warning)));
-            $this->output->getErrorStyle()->newLine();
+            $this->warnForSkippedFiles($errors, \sprintf('Skipped %d %s that cannot be scanned: the translations %s are not audited.', $count, Str::plural('file', $count), $count === 1 ? 'it uses' : 'they use'));
         }
 
         return $translation_keys;
+    }
+
+    /**
+     * Print the error naming each skipped file followed by the summary as a warning on the error output, even for an agent.
+     *
+     * @param  non-empty-list<RuntimeException>  $errors
+     */
+    private function warnForSkippedFiles(array $errors, string $summary): void {
+        $lines = array_map(fn (RuntimeException $error): string => $error->getMessage(), $errors);
+        $lines[] = $summary;
+
+        $this->output->getErrorStyle()->writeln($this->formatMessage(new DisplayMessage(implode(PHP_EOL, $lines), MessageSeverity::Warning)));
+        $this->output->getErrorStyle()->newLine();
     }
 
     /**

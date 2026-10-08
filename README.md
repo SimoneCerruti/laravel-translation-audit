@@ -266,7 +266,7 @@ php artisan translation:audit --display-format=json
 {"missing":{"app/Http/Controllers/HomeController.php":{"auth.failed":["it"],"messages.welcome":["en","it"]}}}
 ```
 
-When the scan [skips a file](#configuration), the JSON result, printed or saved, also has a `skipped` section, with the reason why each skipped file can't be scanned, keyed by its path:
+When the scan [skips a file](#configuration), or a translation file can't be read, the JSON result, printed or saved, also has a `skipped` section, with the reason why each skipped file can't be scanned or read, keyed by its path:
 
 ```json
 {"missing":{},"skipped":{"resources/views/kits/edit.blade.php":"Syntax error, unexpected '<' on line 2"}}
@@ -327,6 +327,8 @@ To ignore a key everywhere, list it on its own. To ignore it only for some local
 ```
 
 A file that can't be scanned, like a broken view or one using a Blade component that isn't registered, is skipped with a warning naming it, and the audit goes on with the other files. The JSON result lists it in its [`skipped` section](#output-formats). The translations it uses aren't audited, so they may be reported as unused: fix the file, or add it to `ignore_paths`. The purge removes nothing while a file is skipped, since it would remove the translations that file uses, but a dry run still lists them.
+
+A translation file that can't be read, like one with a syntax error or an empty PHP file that doesn't return an array, is skipped the same way, with a warning naming it, and listed in the `skipped` section too. Its translations aren't audited, so the keys the translator can't load in its locale aren't reported as missing, while the other locales and translation files are still audited. The purge leaves it untouched and goes on with the other translation files.
 
 Symbolic links aren't followed by default. Pass `--follow-links`, or set `always_follow_links` to `true`, to scan the files behind them too. `vendor` and `node_modules` are never followed.
 

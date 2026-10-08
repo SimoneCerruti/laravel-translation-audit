@@ -2,6 +2,10 @@
 
 ## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.12.0...HEAD)
 
+### Fixes
+
+- Skip the translation files that can't be read, like one with a syntax error or an empty PHP file that doesn't return an array, with a warning naming each of them, instead of failing the whole audit, also when the error isn't an exception, like a class that isn't found. They are listed in the `skipped` section of the JSON result, and the keys the translator can't load in their locale aren't reported as missing, while the other locales and translation files are still audited. `translation:purge-unused` leaves them untouched and purges the other translation files
+
 ## [v0.12.0](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.11.3...v0.12.0) - 2026-10-08
 
 ### Enhancements

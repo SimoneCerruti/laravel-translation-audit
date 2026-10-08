@@ -48,11 +48,12 @@ class AuditTranslations extends AuditCommand {
         $translation_keys = $this->findTranslationKeys();
         $locales = $this->shared_config->locales();
 
-        $result = new AuditTranslationsResult(app(DetectMissingTranslations::class)->handle($translation_keys, $locales, $this->shared_config->ignore_keys), skipped: $this->skipped_files);
+        $missing = app(DetectMissingTranslations::class)->handle($translation_keys, $locales, $this->shared_config->ignore_keys, $this->skipTranslationFile(...));
+        $unused = $this->config->audit_unused
+            ? app(DetectUnusedTranslations::class)->handle($translation_keys, $locales, $this->shared_config->unused_ignore_paths, $this->shared_config->ignore_keys, $this->skipTranslationFile(...))
+            : null;
 
-        if ($this->config->audit_unused) {
-            $result = $result->withUnused(app(DetectUnusedTranslations::class)->handle($translation_keys, $locales, $this->shared_config->unused_ignore_paths, $this->shared_config->ignore_keys));
-        }
+        $result = new AuditTranslationsResult($missing, $unused, $this->warnForSkippedTranslationFiles());
 
         if ($this->config->save_target instanceof SaveTarget) {
             $path = app(SaveAuditResult::class)->handle($result, $this->config->save_target);

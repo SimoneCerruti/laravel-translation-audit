@@ -821,6 +821,23 @@ describe('missing translations', function (): void {
             ]))
             ->assertFailed();
     });
+
+    it('detects the missing translations in the other locales and translation files when a translation file cannot be read', function (string $contents, string $reason): void {
+        putJsonTranslations('en', ['Hello' => 'Hello']);
+        putJsonTranslations('it', ['Hello' => 'Ciao']);
+        putFile('lang/en/messages.php', "<?php return ['welcome' => 'Welcome'];");
+        putFile('lang/it/messages.php', $contents);
+        putFile('app/Example.php', "<?php __('Hello'); __('messages.welcome'); __('messages.old'); __('other.title');");
+
+        $output = auditWithSeparateOutputs(['--display-format' => 'json']);
+
+        expect($output['exit_code'])->toBe(Command::FAILURE)
+            ->and($output['output'])->toBe('{"missing":{"app/Example.php":{"messages.old":["en"],"other.title":["en","it"]}},"skipped":{"lang/it/messages.php":"'.$reason.'"}}'.PHP_EOL)
+            ->and($output['error_output'])->toContain('Unable to read lang/it/messages.php: ');
+    })->with([
+        'empty php' => ['<?php', 'The file does not hold an array of translations, int given.'],
+        'invalid php' => ["<?php return ['welcome' => 'Benvenuto',", "Unclosed '['"],
+    ]);
 });
 
 describe('unused translations', function (): void {
@@ -991,16 +1008,24 @@ describe('unused translations', function (): void {
         expect(getFirstAuditSaveFileJsonContent())->toHaveKey('unused.en', ['lang/en.json' => ['Bye' => 'Bye']]);
     });
 
-    it('fails naming the translation file that cannot be read', function (string $path, string $contents, string $error): void {
-        putFile('app/Example.php', '<?php');
+    it('skips the translation file that cannot be read with a warning naming it, auditing the others', function (string $path, string $contents, string $error): void {
         putFile($path, $contents);
 
-        artisan(AuditTranslations::class, ['--unused' => true])
-            ->expectsOutputToContain("Unable to read {$path}: {$error}")
-            ->assertFailed();
+        $output = auditWithSeparateOutputs(['--unused' => true, '--display-format' => 'json']);
+
+        $result = json_decode($output['output'], true, flags: JSON_THROW_ON_ERROR);
+
+        expect($output['exit_code'])->toBe(Command::FAILURE)
+            ->and($result['unused']['it'])->toHaveKey('lang/it/admin/users.php')
+            ->and(array_keys($result['skipped']))->toBe([$path])
+            ->and($result['skipped'][$path])->toStartWith($error)
+            ->and($output['error_output'])->toContain("Unable to read {$path}: {$error}")
+            ->and($output['error_output'])->toContain('Skipped 1 translation file that cannot be read: its translations are not audited.');
     })->with([
         'invalid json' => ['lang/en.json', '{', 'Syntax error'],
         'invalid php' => ['lang/en/broken.php', '<?php return [', "Unclosed '['"],
+        'empty php' => ['lang/en/broken.php', '<?php', 'The file does not hold an array of translations, int given.'],
+        'php error' => ['lang/en/broken.php', '<?php return [Missing::A];', 'Class "Missing" not found'],
     ]);
 
     it('fails when the unused option is not a boolean', function (): void {

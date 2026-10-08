@@ -35,7 +35,8 @@ class PurgeUnusedTranslations extends AuditCommand {
 
     /**
      * Detect the unused translations and purge them, unless it's a dry run.
-     * Nothing is purged when a file is skipped by the scan, since the translations it uses would look unused.
+     * Nothing is purged when a file is skipped by the scan, since the translations it uses would look unused,
+     * while a translation file that cannot be read is skipped, with its translations left untouched.
      *
      * @throws RuntimeException When a file is skipped by the scan, outside a dry run.
      */
@@ -51,9 +52,11 @@ class PurgeUnusedTranslations extends AuditCommand {
             $this->shared_config->locales(),
             $this->shared_config->unused_ignore_paths,
             $this->shared_config->ignore_keys,
+            $this->skipTranslationFile(...),
         );
+        $skipped = $this->warnForSkippedTranslationFiles();
 
-        return new PurgeUnusedTranslationsResult($this->config->is_dry_run ? $unused : $this->purge($unused), $this->skipped_files);
+        return new PurgeUnusedTranslationsResult($this->config->is_dry_run ? $unused : $this->purge($unused), $skipped);
     }
 
     /**

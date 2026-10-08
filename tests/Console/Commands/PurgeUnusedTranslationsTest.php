@@ -108,6 +108,19 @@ describe('purge', function (): void {
             ->assertSuccessful();
     });
 
+    it('purges the unused translations of the other translation files with a warning for the one that cannot be read, leaving it untouched', function (): void {
+        putFile('lang/it/broken.php', '<?php');
+
+        purgeAsJson()
+            ->expectsOutput('Unable to read lang/it/broken.php: The file does not hold an array of translations, int given.')
+            ->expectsOutput('Skipped 1 translation file that cannot be read: its translations are not audited.')
+            ->expectsOutput(substr(UNUSED_JSON, 0, -1).',"skipped":{"lang/it/broken.php":"The file does not hold an array of translations, int given."}}')
+            ->expectsOutput('4 unused translations purged.')
+            ->assertSuccessful();
+
+        expect(File::get(lang_path('it/broken.php')))->toBe('<?php');
+    });
+
     it('does not rewrite the translation files without unused translations', function (): void {
         $contents = File::get(lang_path('it.json'));
 
