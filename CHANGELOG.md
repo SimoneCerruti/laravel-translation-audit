@@ -1,6 +1,12 @@
 # Release Notes
 
-## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.11.2...HEAD)
+## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.11.3...HEAD)
+
+## [v0.11.3](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.11.2...v0.11.3) - 2026-10-08
+
+### Fixes
+
+- Speed up the audit of the apps with many locales and keys, deduplicating the used keys and the missing translations in linear time instead of quadratic: on an app with 61 locales the audit goes from 71s to 19.5s, with the same output
 
 ## [v0.11.2](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.11.1...v0.11.2) - 2026-10-07
 
