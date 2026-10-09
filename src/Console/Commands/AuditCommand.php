@@ -179,6 +179,16 @@ abstract class AuditCommand extends Command {
         $this->output->getErrorStyle()->writeln($this->formatMessage($message));
     }
 
+    /**
+     * Print the lines as a warning on the error output, even for an agent.
+     *
+     * @param  list<string>  $lines
+     */
+    protected function printWarning(array $lines): void {
+        $this->output->getErrorStyle()->writeln($this->formatMessage(new DisplayMessage(implode(PHP_EOL, $lines), MessageSeverity::Warning)));
+        $this->output->getErrorStyle()->newLine();
+    }
+
     protected function printError(string $message): void {
         $this->output->getErrorStyle()->writeln("<error>{$message}</error>");
     }
@@ -239,8 +249,7 @@ abstract class AuditCommand extends Command {
         $lines = array_map(fn (RuntimeException $error): string => $error->getMessage(), $errors);
         $lines[] = $summary;
 
-        $this->output->getErrorStyle()->writeln($this->formatMessage(new DisplayMessage(implode(PHP_EOL, $lines), MessageSeverity::Warning)));
-        $this->output->getErrorStyle()->newLine();
+        $this->printWarning($lines);
     }
 
     /**

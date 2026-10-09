@@ -238,9 +238,23 @@ php artisan translation:purge-unused
 ```
 
 > [!WARNING]
-> Commit your changes first, so you can review the diff and roll back if needed. Only the lines of the unused translations are removed from the PHP translation files, along with the nested arrays left empty, leaving the rest of the source untouched, like the comments and the computed values. A PHP translation file that doesn't return a literal array, like `return array_merge(...)`, is left untouched. JSON translation files are rewritten keeping their indentation and their final newline, with an indentation of four spaces when they're on a single line.
+> Commit your changes first, so you can review the diff and roll back if needed. Only the lines of the unused translations are removed from the PHP translation files, along with the nested arrays left empty, leaving the rest of the source untouched, like the comments and the computed values. JSON translation files are rewritten keeping their indentation and their final newline, with an indentation of four spaces when they're on a single line.
 
 The same files and keys skipped by the unused audit are never removed.
+
+Some unused translations can't be removed safely, so they're left untouched, even on a dry run:
+
+- the ones of a PHP translation file that doesn't return a literal array, like `return array_merge(...)` or `return $lines`;
+- the ones whose key is known only by running the code, like `Status::PAID => '…'`, a negative key, or an item without a key following one of them or an unpacked array;
+- the ones of a PHP translation file whose purged source wouldn't return the same translations without the removed ones.
+
+A warning names them for each file, along with the reason, and the summary counts them. Only the first five keys of each file are named: add `-v` to name them all. The JSON result lists them in a `not_purged` section, with the reason why each one can't be purged, grouped by locale and translation file:
+
+```json
+{"unused":{},"not_purged":{"it":{"lang/it/legacy.php":{"legacy.old":"The file does not return a literal array."}}}}
+```
+
+Remove them by hand, or list them in `ignore_keys`.
 
 ## Using It in CI
 

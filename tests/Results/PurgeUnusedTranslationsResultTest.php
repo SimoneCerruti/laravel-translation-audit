@@ -15,10 +15,31 @@ function printPurgeUnusedTranslationsResult(PurgeUnusedTranslationsResult $resul
     return str_replace(PHP_EOL, "\n", $output->fetch());
 }
 
-it('is clean without unused translations', function (): void {
+const NOT_PURGED = ['it' => ['lang/it/messages.php' => ['messages.foo' => 'The file does not return a literal array.', 'messages.bar' => 'The file does not return a literal array.']]];
+
+it('is clean without unused translations, purged or not', function (): void {
     expect(new PurgeUnusedTranslationsResult(new Collection)->isClean())->toBeTrue()
-        ->and(new PurgeUnusedTranslationsResult(unusedTranslations(['it' => ['lang/it.json' => ['Bye' => 'Arrivederci']]]))->isClean())->toBeFalse();
+        ->and(new PurgeUnusedTranslationsResult(unusedTranslations(['it' => ['lang/it.json' => ['Bye' => 'Arrivederci']]]))->isClean())->toBeFalse()
+        ->and(new PurgeUnusedTranslationsResult(new Collection, not_purged: NOT_PURGED)->isClean())->toBeFalse();
 });
+
+it('counts the unused translations that cannot be purged', function (): void {
+    $not_purged = [...NOT_PURGED, 'en' => ['lang/en/messages.php' => ['messages.foo' => 'The key is known only by running the code.']]];
+
+    expect(new PurgeUnusedTranslationsResult(new Collection)->countNotPurged())->toBe(0)
+        ->and(new PurgeUnusedTranslationsResult(new Collection, not_purged: $not_purged)->countNotPurged())->toBe(3);
+});
+
+it('prints the reason why each unused translation cannot be purged after the unused translations as json, grouped by locale and file', function (): void {
+    $result = new PurgeUnusedTranslationsResult(unusedTranslations(['it' => ['lang/it.json' => ['Bye' => 'Arrivederci']]]), ['app/Broken.php' => 'Syntax error'], NOT_PURGED);
+
+    expect(printPurgeUnusedTranslationsResult($result, DisplayFormat::Json))
+        ->toBe('{"unused":{"it":{"lang/it.json":{"Bye":"Arrivederci"}}},"not_purged":{"it":{"lang/it/messages.php":{"messages.foo":"The file does not return a literal array.","messages.bar":"The file does not return a literal array."}}},"skipped":{"app/Broken.php":"Syntax error"}}'."\n");
+});
+
+it('prints nothing as a list or a table when no unused translation can be purged', function (DisplayFormat $format): void {
+    expect(printPurgeUnusedTranslationsResult(new PurgeUnusedTranslationsResult(new Collection, not_purged: NOT_PURGED), $format))->toBeEmpty();
+})->with([DisplayFormat::List, DisplayFormat::Table]);
 
 it('prints a clean result only as json', function (DisplayFormat $format, string $printed): void {
     expect(printPurgeUnusedTranslationsResult(new PurgeUnusedTranslationsResult(new Collection), $format))->toBe($printed);

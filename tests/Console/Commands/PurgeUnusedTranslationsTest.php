@@ -54,6 +54,20 @@ describe('dry run', function (): void {
             ->assertSuccessful();
     });
 
+    it('lists the unused translations that would be purged, with a warning naming the ones that cannot be purged', function (): void {
+        $contents = "<?php return array_merge(['old' => 'Vecchio']);";
+        putFile('lang/it/legacy.php', $contents);
+
+        purgeAsJson(['--dry-run' => true])
+            ->expectsOutput('Unable to purge legacy.old from lang/it/legacy.php: the file does not return a literal array.')
+            ->expectsOutput('1 unused translation cannot be purged: remove it by hand, or list it in the ignore_keys config.')
+            ->expectsOutput(substr(UNUSED_JSON, 0, -1).',"not_purged":{"it":{"lang/it/legacy.php":{"legacy.old":"The file does not return a literal array."}}}}')
+            ->expectsOutput('4 unused translations would be purged, 1 cannot be purged.')
+            ->assertSuccessful();
+
+        expect(File::get(lang_path('it/legacy.php')))->toBe($contents);
+    });
+
     it('fails when the dry run option is not a boolean', function (): void {
         artisan(PurgeUnusedTranslations::class, ['--dry-run' => 'yes'])
             ->expectsOutputToContain('The --dry-run option accepts only true or false.')
@@ -120,6 +134,35 @@ describe('purge', function (): void {
 
         expect(File::get(lang_path('it/broken.php')))->toBe('<?php');
     });
+
+    it('purges the other unused translations with a warning naming the ones that cannot be purged, leaving them untouched', function (): void {
+        $contents = "<?php return ['title' => 'Titolo', 'title' => ['short' => 'Breve'], PHP_INT_SIZE => 'Otto'];";
+        putFile('lang/it/legacy.php', $contents);
+
+        purgeAsJson()
+            ->expectsOutput('Unable to purge legacy.title.short from lang/it/legacy.php: the purged file would not return the other translations unchanged.')
+            ->expectsOutput('Unable to purge legacy.'.PHP_INT_SIZE.' from lang/it/legacy.php: the key is known only by running the code.')
+            ->expectsOutput('2 unused translations cannot be purged: remove them by hand, or list them in the ignore_keys config.')
+            ->expectsOutputToContain('"not_purged":{"it":{"lang/it/legacy.php":{"legacy.title.short":"The purged file would not return the other translations unchanged.","legacy.'.PHP_INT_SIZE.'":"The key is known only by running the code."}}}')
+            ->expectsOutput('4 unused translations purged, 2 cannot be purged.')
+            ->assertSuccessful();
+
+        expect(File::get(lang_path('it/legacy.php')))->toBe($contents)
+            ->and(File::getRequire(lang_path('it/admin/users.php')))->toBe([]);
+    });
+
+    it('names only the first keys that cannot be purged of each file, unless the output is verbose', function (array $parameters, string $keys, string $hint): void {
+        config(['translation-audit.supported_locales' => ['it']]);
+        putFile('lang/it/legacy.php', '<?php return array_merge(['.implode(', ', array_map(fn (int $index): string => "'key{$index}' => 'Chiave {$index}'", range(1, 7))).']);');
+
+        purgeAsJson($parameters)
+            ->expectsOutput("Unable to purge {$keys} from lang/it/legacy.php: the file does not return a literal array.")
+            ->expectsOutput("7 unused translations cannot be purged: remove them by hand, or list them in the ignore_keys config.{$hint}")
+            ->assertSuccessful();
+    })->with([
+        'not verbose' => [[], 'legacy.key1, legacy.key2, legacy.key3, legacy.key4, legacy.key5 and 2 more', ' Run the command with -v to name all the keys.'],
+        'verbose' => [['-v' => true], 'legacy.key1, legacy.key2, legacy.key3, legacy.key4, legacy.key5, legacy.key6, legacy.key7', ''],
+    ]);
 
     it('does not rewrite the translation files without unused translations', function (): void {
         $contents = File::get(lang_path('it.json'));
