@@ -14,6 +14,7 @@ use Throwable;
 use TranslationAudit\Support\PhpTranslationFile;
 
 use function Safe\json_decode;
+use function Safe\preg_replace_callback;
 use function Safe\tempnam;
 
 final class PurgeTranslationsFromFile {
@@ -42,7 +43,8 @@ final class PurgeTranslationsFromFile {
      * @return Collection<string, string>
      */
     private function purgeJsonFile(string $path, Collection $keys): Collection {
-        $lines = json_decode(File::get($path), true, flags: JSON_THROW_ON_ERROR);
+        $contents = File::get($path);
+        $lines = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
         $lines = \is_array($lines) ? $lines : [];
         /** @var Collection<string, string> $purged */
         $purged = new Collection;
@@ -59,10 +61,23 @@ final class PurgeTranslationsFromFile {
 
         if ($purged->isNotEmpty()) {
             // turning an empty file into stdClass in order to encode it as an empty object.
-            File::put($path, json_encode($lines === [] ? new stdClass : $lines, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)."\n");
+            $json = json_encode($lines === [] ? new stdClass : $lines, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+
+            File::put($path, $this->withJsonFormatting($json, $contents));
         }
 
         return $purged;
+    }
+
+    /**
+     * Format the pretty printed JSON like the original contents: with the same indentation, four spaces when it has none, and a final newline only when it had one.
+     * Encoded strings can't hold a newline, so the leading whitespace of every line is indentation.
+     */
+    private function withJsonFormatting(string $json, string $contents): string {
+        $indentation = Str::match('/\n([ \t]+)\S/', $contents) ?: '    ';
+        $json = preg_replace_callback('/^(?: {4})+/m', fn (array $match): string => str_repeat($indentation, intdiv(\strlen($match[0]), 4)), $json);
+
+        return str_ends_with($contents, "\n") ? $json."\n" : $json;
     }
 
     /**

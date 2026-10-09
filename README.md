@@ -238,7 +238,7 @@ php artisan translation:purge-unused
 ```
 
 > [!WARNING]
-> Commit your changes first, so you can review the diff and roll back if needed. Only the lines of the unused translations are removed from the PHP translation files, along with the nested arrays left empty, leaving the rest of the source untouched, like the comments and the computed values. A PHP translation file that doesn't return a literal array, like `return array_merge(...)`, is left untouched. JSON translation files are rewritten with an indentation of four spaces.
+> Commit your changes first, so you can review the diff and roll back if needed. Only the lines of the unused translations are removed from the PHP translation files, along with the nested arrays left empty, leaving the rest of the source untouched, like the comments and the computed values. A PHP translation file that doesn't return a literal array, like `return array_merge(...)`, is left untouched. JSON translation files are rewritten keeping their indentation and their final newline, with an indentation of four spaces when they're on a single line.
 
 The same files and keys skipped by the unused audit are never removed.
 

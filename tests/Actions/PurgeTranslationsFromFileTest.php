@@ -19,7 +19,6 @@ it('removes the keys from a json translation file, returning the removed transla
                 ],
                 "Welcome": "Benvenuto"
             }
-
             JSON);
 });
 
@@ -28,8 +27,21 @@ it('leaves an empty object when every key is removed from a json translation fil
 
     app(PurgeTranslationsFromFile::class)->handle('lang/it.json', new Collection(['Hello']));
 
-    expect(File::get(lang_path('it.json')))->toBe("{}\n");
+    expect(File::get(lang_path('it.json')))->toBe('{}');
 });
+
+it('keeps the indentation and the final newline of a json translation file', function (string $indentation, string $newline): void {
+    putFile('lang/it.json', "{\n{$indentation}\"Hello\": \"Ciao\",\n{$indentation}\"list\": [\n{$indentation}{$indentation}\"a\"\n{$indentation}],\n{$indentation}\"Welcome\": \"Benvenuto\"\n}{$newline}");
+
+    app(PurgeTranslationsFromFile::class)->handle('lang/it.json', new Collection(['Hello']));
+
+    expect(File::get(lang_path('it.json')))->toBe("{\n{$indentation}\"list\": [\n{$indentation}{$indentation}\"a\"\n{$indentation}],\n{$indentation}\"Welcome\": \"Benvenuto\"\n}{$newline}");
+})->with([
+    'two spaces with a final newline' => ['  ', "\n"],
+    'two spaces without a final newline' => ['  ', ''],
+    'a tab with a final newline' => ["\t", "\n"],
+    'four spaces without a final newline' => ['    ', ''],
+]);
 
 it('removes the keys of the group from a php translation file along with the parents left empty, returning the removed translations', function (): void {
     putFile('lang/it/admin/users.php', "<?php return ['title' => 'Utenti', 'quoted' => 'L\\'utente C:\\\\path', 'auth' => ['failed' => 'Accesso fallito', 'deep' => ['key' => 'Chiave']], 'list' => ['a', 'b'], 'empty' => []];");

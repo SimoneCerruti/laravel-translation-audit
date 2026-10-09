@@ -2,6 +2,10 @@
 
 ## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.12.2...HEAD)
 
+### Fixes
+
+- Keep the indentation of the JSON translation files rewritten by `translation:purge-unused`, like two spaces or a tab, instead of always indenting them with four spaces, and add the final newline only when the file had one, so the diff shows only the removed translations. A JSON file on a single line is indented with four spaces
+
 ## [v0.12.2](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.12.1...v0.12.2) - 2026-10-08
 
 ### Fixes
