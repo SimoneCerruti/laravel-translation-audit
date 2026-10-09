@@ -318,7 +318,7 @@ Most options have a matching config value, and the option always wins for a sing
 
 | Config | What it does |
 | --- | --- |
-| `scan_paths` | The files to scan, as glob patterns. By default `app/**/*.php` and `resources/views/**/*.blade.php`. |
+| `scan_paths` | The files to scan, as glob patterns. By default `app/**/*.php`, `database/**/*.php`, `resources/views/**/*.blade.php` and `routes/**/*.php`. |
 | `ignore_paths` | The files to skip, even when they match `scan_paths`. |
 | `supported_locales` | Your app's locales. `['auto']` detects them from the JSON files and the folders of the `lang` folder named like a locale, like `en.json` or `pt_BR`. |
 | `ignore_locales` | The locales to leave out, e.g. `['en']` when your keys are the English text. |

@@ -11,7 +11,7 @@ use TranslationAudit\Enums\SaveFormat;
 use TranslationAudit\TranslationAuditServiceProvider;
 
 it('merges the package config', function (): void {
-    expect(config('translation-audit.scan_paths'))->toBe(['app/**/*.php', 'resources/views/**/*.blade.php'])
+    expect(config('translation-audit.scan_paths'))->toBe(['app/**/*.php', 'database/**/*.php', 'resources/views/**/*.blade.php', 'routes/**/*.php'])
         ->and(config('translation-audit.ignore_paths'))->toBe([])
         ->and(config('translation-audit.ignore_links'))->toBe(['vendor', 'node_modules'])
         ->and(config('translation-audit.ignore_locales'))->toBe([])

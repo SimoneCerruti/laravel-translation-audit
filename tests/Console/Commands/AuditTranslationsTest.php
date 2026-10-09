@@ -376,12 +376,16 @@ describe('file selection', function (): void {
         putFile('resources/views/welcome.blade.php', "{{ __('Welcome') }}");
         putFile('app/Models/User.php', "<?php __('User');");
         putFile('app/notes.txt', "<?php __('Notes');");
+        putFile('database/seeders/DatabaseSeeder.php', "<?php __('Seeder');");
         putFile('routes/web.php', "<?php __('Route');");
+        putFile('config/app.php', "<?php __('Config');");
 
         auditAsJson()
             ->expectsOutput(resultJson([
                 'app/Models/User.php' => ['User' => ['en', 'it']],
+                'database/seeders/DatabaseSeeder.php' => ['Seeder' => ['en', 'it']],
                 'resources/views/welcome.blade.php' => ['Welcome' => ['en', 'it']],
+                'routes/web.php' => ['Route' => ['en', 'it']],
             ]))
             ->assertFailed();
     });
