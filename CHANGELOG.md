@@ -2,11 +2,6 @@
 
 ## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.12.4...HEAD)
 
-### Fixes
-
-- Detect as locales only the JSON files and the folders of the `lang` folder named like a locale, like `en.json`, `pt_BR`, `zh-Hant-TW` or `es-419`, when `supported_locales` is `['auto']`, instead of any of them, so a `lang/locales.json` file or a `lang/base` folder is no longer audited as a locale
-- Scan the `database` and `routes` folders by default, adding `database/**/*.php` and `routes/**/*.php` to the default `scan_paths`, so the keys used only by the seeders or the routes, like those of the breadcrumbs, are no longer reported as unused and removed by `translation:purge-unused`. An app that publishes the config keeps its own `scan_paths`
-
 ## [v0.12.4](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.12.3...v0.12.4) - 2026-10-09
 
 ### Fixes
