@@ -2,10 +2,6 @@
 
 ## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.12.3...HEAD)
 
-### Fixes
-
-- Warn for the unused translations that `translation:purge-unused` can't remove, instead of skipping them silently: the ones of a PHP translation file that doesn't return a literal array, the ones whose key is known only by running the code, like `Status::PAID => '…'`, and the ones of a file whose purged source wouldn't return the same translations. The warning names them for each file with the reason, only the first five keys unless the output is verbose, and the summary counts them. They're listed in the new `not_purged` section of the JSON result, with the reason why each one can't be purged, and a dry run no longer lists them among the translations that would be purged
-
 ## [v0.12.3](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.12.2...v0.12.3) - 2026-10-09
 
 ### Fixes
