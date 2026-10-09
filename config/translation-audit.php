@@ -27,8 +27,8 @@ return [
     // themselves are the English strings.
     'ignore_locales' => [],
 
-    // Locales the app supports. Set ['auto'] to detect them from the json
-    // files and directories in the "lang" folder.
+    // Locales the app supports. Set ['auto'] to detect them from the json files and
+    // directories in the "lang" folder named like a locale, e.g. en.json or pt_BR.
     'supported_locales' => ['auto'],
 
     // Whether to follow symbolic links while looking for the files to

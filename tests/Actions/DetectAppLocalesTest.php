@@ -19,6 +19,15 @@ it('detects only the locales at the top level of the lang directory', function (
     expect(app(DetectAppLocales::class)->handle())->toBe(['en', 'it']);
 });
 
+it('detects only the json files and the directories named like a locale', function (): void {
+    populateLangDir(
+        files: ['locales.json', 'es-419.json', 'zh-Hant-TW.json', 'messages.json'],
+        directories: ['base', 'fil', 'pt_BR', 'de_informal', 'en-x-pirate', 'shared'],
+    );
+
+    expect(app(DetectAppLocales::class)->handle())->toBe(['de_informal', 'en-x-pirate', 'es-419', 'fil', 'pt_BR', 'zh-Hant-TW']);
+});
+
 it('fails without a lang directory', function (): void {
     app(DetectAppLocales::class)->handle();
 })->throws(InvalidConfigException::class, 'Unable to autodetect supported locales. The lang folder is missing.');
