@@ -23,6 +23,8 @@ final readonly class DetectUnusedTranslations {
      * A translation matching a dynamic key is used, since the key can take its value at runtime.
      * A translation of a PHP file is also used when a key used in a file or a dynamic key matches one of its parents,
      * e.g. `messages.errors.title` for `__('messages.errors')`, since the translator returns the array of its children.
+     * A translation of a PHP file is also used by a key with leading slashes, e.g. `/admin/form.title` for `admin/form.title`,
+     * since the translator appends the group to the path of the locale folder, so it loads the same file.
      * A translation file that cannot be read fails, unless a callback for the skipped files is given: then it is skipped, without any of its translations.
      *
      * @param  Collection<int, UsedTranslationKey>  $translation_keys  The keys used in the scanned files.
@@ -40,10 +42,18 @@ final readonly class DetectUnusedTranslations {
             ->filter(fn (string|DynamicTranslationKey $key): bool => $key instanceof DynamicTranslationKey)
             ->keyBy(fn (DynamicTranslationKey $key): string => json_encode($key->segments, JSON_THROW_ON_ERROR));
 
+        // the keys of the JSON files are matched literally, so the leading slashes are dropped only for those of the PHP files.
+        $php_used_keys = $used_keys->keyBy(fn (UsedTranslationKey $key, string $value): string => ltrim($value, '/'));
+        $php_dynamic_keys = $dynamic_keys
+            ->map(fn (DynamicTranslationKey $key): DynamicTranslationKey => new DynamicTranslationKey([ltrim($key->segments[0], '/'), ...\array_slice($key->segments, 1)]))
+            ->keyBy(fn (DynamicTranslationKey $key): string => json_encode($key->segments, JSON_THROW_ON_ERROR));
+
         return new Collection($locales)
             ->flatMap(fn (string $locale): Collection => $this->get_app_translations_for_locale->handle($locale, $on_file_skipped))
             ->reject(fn (Translation $translation): bool => $this->isIgnoredPath($translation->file, $ignore_paths)
-                || $this->isUsed($translation, $used_keys, $dynamic_keys)
+                || (str_ends_with($translation->file, '.json')
+                    ? $this->isUsed($translation, $used_keys, $dynamic_keys)
+                    : $this->isUsed($translation, $php_used_keys, $php_dynamic_keys))
                 || $ignored_keys->has($translation->key, $translation->locale))
             ->values();
     }

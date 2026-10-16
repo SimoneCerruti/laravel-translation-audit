@@ -232,6 +232,18 @@ describe('purge', function (): void {
             ->assertSuccessful();
     });
 
+    it('leaves untouched the translations of a PHP file used with a leading slash', function (): void {
+        putFile('app/Slash.php', "<?php __('/admin/users.title');");
+
+        purgeAsJson()
+            ->expectsOutput('{"unused":{"en":{"lang/en.json":{"Bye":"Bye"}},"it":{"lang/it/messages.php":{"messages.old":"Vecchio","messages.nested.unused":"Inutilizzato"}}}}')
+            ->expectsOutput('3 unused translations purged.')
+            ->assertSuccessful();
+
+        expect(File::getRequire(lang_path('it/admin/users.php')))->toBe(['title' => 'Utenti'])
+            ->and(__('/admin/users.title', locale: 'it'))->toBe('Utenti');
+    });
+
     it('removes the translations matching a dynamic key but not among its values in the dynamic_keys config', function (): void {
         putFile('app/Dynamic.php', '<?php __("messages.nested.{$key}");');
         config(['translation-audit.dynamic_keys' => ['messages.nested.*' => ['used']]]);

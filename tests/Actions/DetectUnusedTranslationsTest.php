@@ -106,3 +106,29 @@ it('does not consider used the JSON translations sharing the prefix of a used ke
         new Translation('Hello. World', 'it', 'lang/it.json', 'Ciao. Mondo'),
     ]);
 });
+
+it('considers used the translations of a PHP file used with leading slashes, like the translator resolving them', function (): void {
+    putFile('lang/it/admin/hardware/form.php', "<?php return ['bulk_update' => 'Aggiorna', 'status' => ['open' => 'Aperto'], 'title' => 'Titolo', 'total' => 'Totale'];");
+    putFile('lang/it/orders.php', "<?php return ['title' => 'Ordini', 'total' => 'Totale'];");
+
+    $unused = app(DetectUnusedTranslations::class)->handle(
+        usedTranslationKeys(['app/Example.php' => ['/admin/hardware/form.bulk_update', '//admin/hardware/form.status']])
+            ->push(new UsedTranslationKey('app/Orders.php', new DynamicTranslationKey(['/', '.title'])))
+            ->push(new UsedTranslationKey('app/Orders.php', new DynamicTranslationKey(['/orders.', '']))),
+        ['it'],
+        [],
+        IgnoredKeys::fromConfig([]),
+    );
+
+    expect($unused->all())->toEqual([
+        new Translation('admin/hardware/form.total', 'it', 'lang/it/admin/hardware/form.php', 'Totale'),
+    ]);
+});
+
+it('does not consider used the JSON translations of a key used with a leading slash', function (): void {
+    putJsonTranslations('it', ['Hello' => 'Ciao', '/Bye' => 'Arrivederci']);
+
+    $unused = app(DetectUnusedTranslations::class)->handle(usedTranslationKeys(['app/Example.php' => ['/Hello', '/Bye']]), ['it'], [], IgnoredKeys::fromConfig([]));
+
+    expect($unused->all())->toEqual([new Translation('Hello', 'it', 'lang/it.json', 'Ciao')]);
+});

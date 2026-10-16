@@ -2,6 +2,10 @@
 
 ## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.12.5...HEAD)
 
+### Fixes
+
+- Count the translations of a PHP translation file as used also when the key has leading slashes, like `__('/admin/form.title')` for `admin/form.title`, since the translator loads the same file, so they are no longer reported as unused nor removed by `translation:purge-unused`. The keys of the JSON translation files are still matched literally
+
 ## [v0.12.5](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.12.4...v0.12.5) - 2026-10-09
 
 ### Fixes
