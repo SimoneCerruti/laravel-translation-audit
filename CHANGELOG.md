@@ -1,6 +1,19 @@
 # Release Notes
 
-## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.12.7...HEAD)
+## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.13.0...HEAD)
+
+## [v0.13.0](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.12.7...v0.13.0) - 2026-10-16
+
+### Breaking Changes
+
+- Delimit the public API ahead of v1.0: the service provider, the commands, `AuditCommand`, the `TranslationKeyResolver` contract, the `Result` contract and the results, `Data\Translation`, the `DisplayFormat` and `SaveFormat` enums and `InvalidConfigException`. Every other class, like the actions, the support classes and the other data objects, is marked `@internal`, along with `AuditTranslationsResult::withUnused()` and `AuditTranslationsResult::jsonSections()`, and may change in any release. Every concrete class is now `final`, so the commands, the results and the service provider can no longer be extended
+- Rename the publish tag of the GitHub workflow from `laravel-translation-audit-workflow` to `laravel-translation-audit-github-workflow`, to tell it apart from the new GitLab one. Publish it with `php artisan vendor:publish --tag="laravel-translation-audit-github-workflow"`
+- Remove the `unused_ignore_paths` config, merged into `ignore_paths`, which now also skips the translation files matching it in the unused audit. Its defaults, Laravel's own translation files, are now the defaults of `ignore_paths`, each mapped to `AuditType::Unused`. Move its patterns to `ignore_paths`, each mapped to `AuditType::Unused`, like `'lang/*/validation.php' => AuditType::Unused`. A published config with its own `ignore_paths` must add the defaults too, or Laravel's translation files are reported as unused and removed by `translation:purge-unused`
+
+### Enhancements
+
+- Ship a ready-made GitLab CI job that runs `translation:audit` on every push to the default branch, on every merge request and on the pipelines run from the web UI. Publish it with `php artisan vendor:publish --tag="laravel-translation-audit-gitlab-workflow"` to `.gitlab/ci/audit-translations.yml`, then include it from your `.gitlab-ci.yml`. The `laravel-translation-audit` tag publishes it too, along with the config and the GitHub workflow
+- Limit the entries of `ignore_paths`, `ignore_locales` and `ignore_keys` to one audit, by mapping them to a case of the new `AuditType` enum, `Missing` or `Unused`, or to its value. A scanned file ignored only by the missing audit still counts its keys as used, so `translation:purge-unused` keeps them, like `'database/seeders/**' => AuditType::Missing`, while one ignored only by the unused audit is still audited for missing translations. A locale can be left out of the missing audit only, like `'en' => AuditType::Missing` when the keys are the English text, still reporting and purging its unused translations. A key can be ignored in one audit for every locale, like `'Bye' => AuditType::Missing`, or only for its listed locales, like `'Ciao' => ['en', AuditType::Unused]`. `AuditType` is part of the public API
 
 ## [v0.12.7](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.12.6...v0.12.7) - 2026-10-16
 
