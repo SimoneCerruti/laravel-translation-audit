@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Symfony\Component\Finder\Finder;
+use Symfony\Component\Finder\SplFileInfo;
 use Throwable;
 use TranslationAudit\Data\Translation;
 use UnexpectedValueException;
@@ -43,10 +44,9 @@ final class GetAppTranslationsForLocale {
         }
 
         foreach (Finder::create()->files()->in(lang_path($locale))->name('*.php')->sortByName() as $file) {
-            $group = str_replace('\\', '/', substr($file->getRelativePathname(), 0, -\strlen('.php')));
             $lines = $this->readTranslationFile($file->getPathname(), fn (): mixed => File::getRequire($file->getPathname()), $on_file_skipped);
 
-            $translations->push(...$this->toTranslations(Arr::dot($lines ?? [], "{$group}."), $locale, $file->getPathname()));
+            $translations->push(...$this->toTranslations(Arr::dot($lines ?? [], "{$this->getGroup($file)}."), $locale, $file->getPathname()));
         }
 
         return $translations;
@@ -107,6 +107,11 @@ final class GetAppTranslationsForLocale {
 
             return null;
         }
+    }
+
+    /** The group of a PHP translation file: its path relative to the locale directory, without the extension, with forward slashes on every OS. */
+    private function getGroup(SplFileInfo $file): string {
+        return str_replace('\\', '/', substr($file->getRelativePathname(), 0, -\strlen('.php')));
     }
 
     /** The absolute path relative to the project root, with forward slashes on every OS. */

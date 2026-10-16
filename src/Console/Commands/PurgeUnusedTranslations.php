@@ -107,20 +107,13 @@ class PurgeUnusedTranslations extends AuditCommand {
 
         foreach ($not_purged as $files) {
             foreach ($files as $file => $reasons) {
-                $keys_by_reason = [];
-
-                foreach ($reasons as $key => $reason) {
-                    $keys_by_reason[$reason][] = $key;
-                }
-
-                foreach ($keys_by_reason as $reason => $keys) {
-                    $count += \count($keys);
+                foreach ($this->groupKeysByReason($reasons) as $reason => $keys) {
                     $shown_keys = $this->output->isVerbose() ? $keys : \array_slice($keys, 0, self::NOT_PURGED_KEYS_SHOWN);
                     $hidden_count = \count($keys) - \count($shown_keys);
-                    $is_truncated = $is_truncated || $hidden_count > 0;
-                    $named_keys = implode(', ', $shown_keys).($hidden_count > 0 ? " and {$hidden_count} more" : '');
 
-                    $lines[] = "Unable to purge {$named_keys} from {$file}: ".Str::lcfirst($reason);
+                    $lines[] = "Unable to purge {$this->nameKeys($shown_keys, $hidden_count)} from {$file}: ".Str::lcfirst($reason);
+                    $count += \count($keys);
+                    $is_truncated = $is_truncated || $hidden_count > 0;
                 }
             }
         }
@@ -134,6 +127,31 @@ class PurgeUnusedTranslations extends AuditCommand {
         $lines[] = "{$count} unused {$translations} cannot be purged: remove {$pronoun} by hand, or list {$pronoun} in the ignore_keys config.".($is_truncated ? ' Run the command with -v to name all the keys.' : '');
 
         $this->printWarning($lines);
+    }
+
+    /**
+     * @param  array<string, string>  $reasons  The reason why each key cannot be purged.
+     * @return array<string, non-empty-list<string>>
+     */
+    private function groupKeysByReason(array $reasons): array {
+        $keys_by_reason = [];
+
+        foreach ($reasons as $key => $reason) {
+            $keys_by_reason[$reason][] = (string) $key;
+        }
+
+        return $keys_by_reason;
+    }
+
+    /**
+     * The keys joined by commas, followed by the number of the hidden ones, e.g. `a, b and 3 more`.
+     *
+     * @param  list<string>  $keys
+     */
+    private function nameKeys(array $keys, int $hidden_count): string {
+        $named_keys = implode(', ', $keys);
+
+        return $hidden_count > 0 ? "{$named_keys} and {$hidden_count} more" : $named_keys;
     }
 
     protected function summarize(Result $result): DisplayMessage {

@@ -33,8 +33,10 @@ final readonly class TranslationCalls {
         $static_methods = [];
 
         foreach ($config as $name => $position) {
+            // a listed call takes the key as its first argument.
             if (\is_int($name)) {
-                [$name, $position] = [$position, 0];
+                $name = $position;
+                $position = 0;
             }
 
             if (! \is_string($name) || ! \is_int($position) || $position < 0) {
@@ -43,9 +45,9 @@ final readonly class TranslationCalls {
 
             $parts = explode('::', $name);
 
-            if (\count($parts) === 2 && preg_match(self::NAME_PATTERN, $parts[0]) === 1 && preg_match(self::METHOD_PATTERN, $parts[1]) === 1) {
-                $static_methods[self::normalize($parts[0]).'::'.strtolower($parts[1])] = $position;
-            } elseif (\count($parts) === 1 && preg_match(self::NAME_PATTERN, $name) === 1) {
+            if (self::isStaticMethod($parts)) {
+                $static_methods[self::staticMethodName($parts[0], $parts[1])] = $position;
+            } elseif (self::isFunction($parts)) {
                 $functions[self::normalize($name)] = $position;
             } else {
                 throw new InvalidConfigException("The \"{$name}\" entry of the \"translation_calls\" config must be a function name, like \"t\" or \"App\\Support\\t\", or a static method, like \"App\\Support\\Translator::translate\".");
@@ -76,7 +78,36 @@ final readonly class TranslationCalls {
      * @return int<0, max>|null
      */
     public function staticMethodKeyPosition(string $class, string $method): ?int {
-        return $this->static_methods[self::normalize($class).'::'.strtolower($method)] ?? null;
+        return $this->static_methods[self::staticMethodName($class, $method)] ?? null;
+    }
+
+    /**
+     * Whether the parts of the name split by `::` are a class name and a method name.
+     *
+     * @param  list<string>  $parts
+     *
+     * @phpstan-assert-if-true array{string, string} $parts
+     */
+    private static function isStaticMethod(array $parts): bool {
+        return \count($parts) === 2 && preg_match(self::NAME_PATTERN, $parts[0]) === 1 && preg_match(self::METHOD_PATTERN, $parts[1]) === 1;
+    }
+
+    /**
+     * Whether the parts of the name split by `::` are a function name.
+     *
+     * @param  list<string>  $parts
+     */
+    private static function isFunction(array $parts): bool {
+        return \count($parts) === 1 && preg_match(self::NAME_PATTERN, $parts[0]) === 1;
+    }
+
+    /**
+     * The normalized class name and the lowercase method name, joined by `::`.
+     *
+     * @return lowercase-string
+     */
+    private static function staticMethodName(string $class, string $method): string {
+        return self::normalize($class).'::'.strtolower($method);
     }
 
     /**

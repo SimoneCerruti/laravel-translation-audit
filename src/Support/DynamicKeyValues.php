@@ -47,18 +47,34 @@ final readonly class DynamicKeyValues {
      */
     public function expand(Collection $translation_keys): Collection {
         return $translation_keys
-            ->flatMap(function (UsedTranslationKey $key): array {
-                if (! $key->value instanceof DynamicTranslationKey || ! isset($this->values[$key->value->pattern()])) {
-                    return [$key];
-                }
-
-                $segments = $key->value->segments;
-                // the pattern has some static text, so no key is falsy.
-                $expanded_keys = array_filter(array_map(fn (string $value): string => $segments[0].$value.$segments[1], $this->values[$key->value->pattern()]));
-
-                return array_map(fn (string $expanded_key): UsedTranslationKey => new UsedTranslationKey($key->file, $expanded_key), $expanded_keys);
-            })
+            ->flatMap($this->expandKey(...))
             ->values();
+    }
+
+    /**
+     * The key for each value of the dynamic key, or the key itself when it is not dynamic or its pattern has no values.
+     *
+     * @return list<UsedTranslationKey>
+     */
+    private function expandKey(UsedTranslationKey $key): array {
+        if (! $key->value instanceof DynamicTranslationKey || ! isset($this->values[$key->value->pattern()])) {
+            return [$key];
+        }
+
+        // the pattern has a single dynamic part, between the two segments.
+        [$prefix, $suffix] = $key->value->segments;
+        $expanded_keys = [];
+
+        foreach ($this->values[$key->value->pattern()] as $value) {
+            // the pattern has some static text, so no key is falsy.
+            $expanded_key = $prefix.$value.$suffix;
+
+            if ($expanded_key) {
+                $expanded_keys[] = new UsedTranslationKey($key->file, $expanded_key);
+            }
+        }
+
+        return $expanded_keys;
     }
 
     /**

@@ -96,7 +96,11 @@ final class FindTranslationKeysInFile {
         // An unqualified function called in a namespace is either the namespaced function or, as a fallback, the global one.
         $namespaced_name = $call->name->getAttribute('namespacedName');
 
-        return $translation_calls->functionKeyPosition(...($namespaced_name instanceof Name ? [$namespaced_name->toString(), $call->name->toString()] : [$call->name->toString()]));
+        if ($namespaced_name instanceof Name) {
+            return $translation_calls->functionKeyPosition($namespaced_name->toString(), $call->name->toString());
+        }
+
+        return $translation_calls->functionKeyPosition($call->name->toString());
     }
 
     /**
@@ -113,11 +117,7 @@ final class FindTranslationKeysInFile {
             return self::KEY_PARAMETER;
         }
 
-        // A class without a namespace may be an alias, like the facades used in the Blade views.
-        $class = $call->class->toString();
-        $aliases = AliasLoader::getInstance()->getAliases();
-
-        return $translation_calls->staticMethodKeyPosition(\is_string($aliases[$class] ?? null) ? $aliases[$class] : $class, $call->name->toString());
+        return $translation_calls->staticMethodKeyPosition($this->resolveAlias($call->class->toString()), $call->name->toString());
     }
 
     /**
@@ -164,14 +164,21 @@ final class FindTranslationKeysInFile {
      * @param  int<0, max>|self::KEY_PARAMETER  $position
      */
     private function getKeyArgument(array $arguments, int|string $position): ?Arg {
-        if (\is_string($position)) {
-            return array_find($arguments, fn (Arg $argument): bool => $argument->name?->toString() === $position)
-                ?? (isset($arguments[0]) && $arguments[0]->name === null ? $arguments[0] : null);
+        if (\is_int($position)) {
+            $argument = $arguments[$position] ?? null;
+
+            return $argument !== null && $argument->name === null && ! $argument->unpack ? $argument : null;
         }
 
-        $argument = $arguments[$position] ?? null;
+        $named_argument = array_find($arguments, fn (Arg $argument): bool => $argument->name?->toString() === $position);
 
-        return $argument !== null && $argument->name === null && ! $argument->unpack ? $argument : null;
+        if ($named_argument instanceof Arg) {
+            return $named_argument;
+        }
+
+        $first_argument = $arguments[0] ?? null;
+
+        return $first_argument !== null && $first_argument->name === null ? $first_argument : null;
     }
 
     /**
@@ -210,6 +217,13 @@ final class FindTranslationKeysInFile {
         }
 
         return $segments;
+    }
+
+    /** The class an alias stands for, like the facades used in the Blade views without a namespace, or the class itself. */
+    private function resolveAlias(string $class): string {
+        $alias = AliasLoader::getInstance()->getAliases()[$class] ?? null;
+
+        return \is_string($alias) ? $alias : $class;
     }
 
     private function isTranslatorMethod(Identifier|Expr $name): bool {

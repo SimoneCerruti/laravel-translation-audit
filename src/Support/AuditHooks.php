@@ -55,7 +55,7 @@ final class AuditHooks {
      * @throws RuntimeException Naming the failing hook.
      */
     public function before(AuditCommand $command): void {
-        $this->run('before', $command, ['command' => $command, AuditCommand::class => $command, $command::class => $command]);
+        $this->run('before', $command, $this->commandParameters($command));
     }
 
     /**
@@ -66,7 +66,12 @@ final class AuditHooks {
      * @throws RuntimeException Naming the failing hook.
      */
     public function after(AuditCommand $command, Result $result): void {
-        $this->run('after', $command, ['command' => $command, AuditCommand::class => $command, $command::class => $command, 'result' => $result, Result::class => $result, $result::class => $result]);
+        $this->run('after', $command, [
+            ...$this->commandParameters($command),
+            'result' => $result,
+            Result::class => $result,
+            $result::class => $result,
+        ]);
     }
 
     /**
@@ -92,6 +97,20 @@ final class AuditHooks {
                 throw new RuntimeException("Unable to run the {$method} hook {$class}: {$e->getMessage()}", (int) $e->getCode(), previous: $e);
             }
         }
+    }
+
+    /**
+     * The command, passed to the hooks by name, by the base command class, or by its own class.
+     *
+     * @param  AuditCommand<*>  $command
+     * @return array<string, AuditCommand<*>>
+     */
+    private function commandParameters(AuditCommand $command): array {
+        return [
+            'command' => $command,
+            AuditCommand::class => $command,
+            $command::class => $command,
+        ];
     }
 
     /**

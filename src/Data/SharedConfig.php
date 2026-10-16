@@ -63,12 +63,12 @@ readonly class SharedConfig {
             supported_locales: self::getSupportedLocales(),
             ignore_locales: self::getConfigStringList('ignore_locales'),
             unused_ignore_paths: self::getConfigStringList('unused_ignore_paths'),
-            ignore_keys: self::getIgnoreKeys(),
-            additional_keys: self::getAdditionalKeys(),
-            dynamic_keys: self::getDynamicKeys(),
-            resolvers: self::getResolvers(),
-            translation_calls: self::getTranslationCalls(),
-            hooks: self::getHooks(),
+            ignore_keys: IgnoredKeys::fromConfig(self::getConfigArray('ignore_keys')),
+            additional_keys: AdditionalKeys::fromConfig(self::getConfigArray('additional_keys')),
+            dynamic_keys: DynamicKeyValues::fromConfig(self::getConfigArray('dynamic_keys')),
+            resolvers: TranslationKeyResolvers::fromConfig(self::getConfigArray('resolvers')),
+            translation_calls: TranslationCalls::fromConfig(self::getConfigArray('translation_calls')),
+            hooks: AuditHooks::fromConfig(self::getConfigArray('hooks')),
             follow_links: $options_helper->booleanOrConfig('follow-links', 'translation-audit.always_follow_links', false),
             output_for_agent: $output_for_agent,
             display_format: $output_for_agent
@@ -89,81 +89,18 @@ readonly class SharedConfig {
     }
 
     /**
+     * The config value, which must be an array.
+     *
+     * @return array<array-key, mixed>
+     *
      * @throws InvalidConfigException
      */
-    private static function getIgnoreKeys(): IgnoredKeys {
+    private static function getConfigArray(string $key): array {
         try {
-            $values = config()->array('translation-audit.ignore_keys');
+            return config()->array("translation-audit.{$key}");
         } catch (InvalidArgumentException) {
-            throw new InvalidConfigException('The "ignore_keys" config must be an array.');
+            throw new InvalidConfigException("The \"{$key}\" config must be an array.");
         }
-
-        return IgnoredKeys::fromConfig($values);
-    }
-
-    /**
-     * @throws InvalidConfigException
-     */
-    private static function getAdditionalKeys(): AdditionalKeys {
-        try {
-            $values = config()->array('translation-audit.additional_keys');
-        } catch (InvalidArgumentException) {
-            throw new InvalidConfigException('The "additional_keys" config must be an array.');
-        }
-
-        return AdditionalKeys::fromConfig($values);
-    }
-
-    /**
-     * @throws InvalidConfigException
-     */
-    private static function getDynamicKeys(): DynamicKeyValues {
-        try {
-            $values = config()->array('translation-audit.dynamic_keys');
-        } catch (InvalidArgumentException) {
-            throw new InvalidConfigException('The "dynamic_keys" config must be an array.');
-        }
-
-        return DynamicKeyValues::fromConfig($values);
-    }
-
-    /**
-     * @throws InvalidConfigException
-     */
-    private static function getResolvers(): TranslationKeyResolvers {
-        try {
-            $values = config()->array('translation-audit.resolvers');
-        } catch (InvalidArgumentException) {
-            throw new InvalidConfigException('The "resolvers" config must be an array.');
-        }
-
-        return TranslationKeyResolvers::fromConfig($values);
-    }
-
-    /**
-     * @throws InvalidConfigException
-     */
-    private static function getTranslationCalls(): TranslationCalls {
-        try {
-            $values = config()->array('translation-audit.translation_calls');
-        } catch (InvalidArgumentException) {
-            throw new InvalidConfigException('The "translation_calls" config must be an array.');
-        }
-
-        return TranslationCalls::fromConfig($values);
-    }
-
-    /**
-     * @throws InvalidConfigException
-     */
-    private static function getHooks(): AuditHooks {
-        try {
-            $values = config()->array('translation-audit.hooks');
-        } catch (InvalidArgumentException) {
-            throw new InvalidConfigException('The "hooks" config must be an array.');
-        }
-
-        return AuditHooks::fromConfig($values);
     }
 
     /**
@@ -172,15 +109,9 @@ readonly class SharedConfig {
      * @throws InvalidConfigException
      */
     private static function getConfigStringList(string $key): array {
-        try {
-            $values = config()->array("translation-audit.{$key}");
-        } catch (InvalidArgumentException) {
-            throw new InvalidConfigException("The \"{$key}\" config must be an array.");
-        }
-
         $strings = [];
 
-        foreach ($values as $value) {
+        foreach (self::getConfigArray($key) as $value) {
             if (! \is_string($value) || ! $value) {
                 throw new InvalidConfigException("The \"{$key}\" config must contain only non-empty strings.");
             }
@@ -210,16 +141,14 @@ readonly class SharedConfig {
      * @throws InvalidConfigException
      */
     private static function getSupportedLocales(): array {
-        $supported_locales_config = self::getConfigStringList('supported_locales');
+        $supported_locales = self::getConfigStringList('supported_locales');
 
-        throw_if($supported_locales_config === [], InvalidConfigException::class, 'The "supported_locales" config must be an array listing the app supported locales. Use "auto" as the first value of the array to autodetect locales from the "lang" folder');
+        throw_if($supported_locales === [], InvalidConfigException::class, 'The "supported_locales" config must be an array listing the app supported locales. Use "auto" as the first value of the array to autodetect locales from the "lang" folder');
 
-        $is_auto = $supported_locales_config[0] === 'auto';
-
-        if ($is_auto) {
+        if ($supported_locales[0] === 'auto') {
             return app(DetectAppLocales::class)->handle();
         }
 
-        return $supported_locales_config;
+        return $supported_locales;
     }
 }

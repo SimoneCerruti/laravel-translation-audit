@@ -8,10 +8,10 @@ use Closure;
 use Illuminate\Support\Collection;
 use RuntimeException;
 use Symfony\Component\Finder\Glob;
-use TranslationAudit\Data\DynamicTranslationKey;
 use TranslationAudit\Data\Translation;
 use TranslationAudit\Data\UsedTranslationKey;
 use TranslationAudit\Support\IgnoredKeys;
+use TranslationAudit\Support\UsedKeys;
 
 use function Safe\preg_match;
 
@@ -36,50 +36,58 @@ final readonly class DetectUnusedTranslations {
      * @throws RuntimeException Naming the translation file that cannot be read, without a callback for the skipped files.
      */
     public function handle(Collection $translation_keys, array $locales, array $ignore_paths, IgnoredKeys $ignored_keys, ?Closure $on_file_skipped = null): Collection {
-        $used_keys = $translation_keys->filter(fn (UsedTranslationKey $key): bool => \is_string($key->value))->keyBy('value');
-        $dynamic_keys = $translation_keys
-            ->map(fn (UsedTranslationKey $key): string|DynamicTranslationKey => $key->value)
-            ->filter(fn (string|DynamicTranslationKey $key): bool => $key instanceof DynamicTranslationKey)
-            ->keyBy(fn (DynamicTranslationKey $key): string => json_encode($key->segments, JSON_THROW_ON_ERROR));
+        $json_used_keys = UsedKeys::fromTranslationKeys($translation_keys);
+        $php_used_keys = $json_used_keys->withoutLeadingSlashes();
+        $unused = new Collection;
 
-        // the keys of the JSON files are matched literally, so the leading slashes are dropped only for those of the PHP files.
-        $php_used_keys = $used_keys->keyBy(fn (UsedTranslationKey $key, string $value): string => ltrim($value, '/'));
-        $php_dynamic_keys = $dynamic_keys
-            ->map(fn (DynamicTranslationKey $key): DynamicTranslationKey => new DynamicTranslationKey([ltrim($key->segments[0], '/'), ...\array_slice($key->segments, 1)]))
-            ->keyBy(fn (DynamicTranslationKey $key): string => json_encode($key->segments, JSON_THROW_ON_ERROR));
+        foreach ($locales as $locale) {
+            foreach ($this->get_app_translations_for_locale->handle($locale, $on_file_skipped) as $translation) {
+                if ($this->isIgnored($translation, $ignore_paths, $ignored_keys) || $this->isUsed($translation, $json_used_keys, $php_used_keys)) {
+                    continue;
+                }
 
-        return new Collection($locales)
-            ->flatMap(fn (string $locale): Collection => $this->get_app_translations_for_locale->handle($locale, $on_file_skipped))
-            ->reject(fn (Translation $translation): bool => $this->isIgnoredPath($translation->file, $ignore_paths)
-                || (str_ends_with($translation->file, '.json')
-                    ? $this->isUsed($translation, $used_keys, $dynamic_keys)
-                    : $this->isUsed($translation, $php_used_keys, $php_dynamic_keys))
-                || $ignored_keys->has($translation->key, $translation->locale))
-            ->values();
-    }
-
-    /**
-     * @param  Collection<string, UsedTranslationKey>  $used_keys
-     * @param  Collection<array-key, DynamicTranslationKey>  $dynamic_keys
-     */
-    private function isUsed(Translation $translation, Collection $used_keys, Collection $dynamic_keys): bool {
-        $keys = [$translation->key];
-
-        // the keys of the JSON files are flat, so only those of the PHP files have parents.
-        if (! str_ends_with($translation->file, '.json')) {
-            $segments = explode('.', $translation->key);
-
-            for ($length = \count($segments) - 1; $length > 0; $length--) {
-                $keys[] = implode('.', \array_slice($segments, 0, $length));
+                $unused->push($translation);
             }
         }
 
-        return array_any($keys, fn (string $key): bool => $used_keys->has($key)
-            || $dynamic_keys->contains(fn (DynamicTranslationKey $dynamic_key): bool => $dynamic_key->matches($key)));
+        return $unused;
     }
 
     /** @param  array<string>  $ignore_paths */
-    private function isIgnoredPath(string $relative_path, array $ignore_paths): bool {
-        return array_any($ignore_paths, fn (string $ignore_path): bool => preg_match(Glob::toRegex($ignore_path), $relative_path) === 1);
+    private function isIgnored(Translation $translation, array $ignore_paths, IgnoredKeys $ignored_keys): bool {
+        if ($ignored_keys->has($translation->key, $translation->locale)) {
+            return true;
+        }
+
+        return array_any($ignore_paths, fn (string $ignore_path): bool => preg_match(Glob::toRegex($ignore_path), $translation->file) === 1);
+    }
+
+    /**
+     * The keys of the JSON files are flat and loaded as they are, so they are matched literally.
+     * A key of a PHP file is also used through its parents, which return the array of their children,
+     * and through the keys with leading slashes, which load the same file.
+     */
+    private function isUsed(Translation $translation, UsedKeys $json_used_keys, UsedKeys $php_used_keys): bool {
+        if (str_ends_with($translation->file, '.json')) {
+            return $json_used_keys->has($translation->key);
+        }
+
+        return array_any($this->withParentKeys($translation->key), $php_used_keys->has(...));
+    }
+
+    /**
+     * The key followed by its parents, e.g. `messages.errors.title`, `messages.errors` and `messages`.
+     *
+     * @return non-empty-list<string>
+     */
+    private function withParentKeys(string $key): array {
+        $segments = explode('.', $key);
+        $keys = [];
+
+        for ($length = \count($segments); $length > 0; $length--) {
+            $keys[] = implode('.', \array_slice($segments, 0, $length));
+        }
+
+        return $keys;
     }
 }

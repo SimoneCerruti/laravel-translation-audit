@@ -31,51 +31,78 @@ final readonly class DetectMissingTranslations {
      * @throws RuntimeException Naming the translation file that cannot be read, without a callback for the skipped files.
      */
     public function handle(Collection $translation_keys, array $locales, IgnoredKeys $ignored_keys, ?Closure $on_file_skipped = null): Collection {
-        $missing = new Collection;
         $defined_keys = [];
         $locales_with_skipped_files = [];
 
         // reading the translation files first names the one that cannot be read, which the translator would fail to load without naming it.
         foreach ($locales as $locale) {
-            $defined_keys[$locale] = $this->get_app_translations_for_locale
-                ->handle($locale, $on_file_skipped instanceof Closure ? function (string $path, RuntimeException $error) use ($locale, &$locales_with_skipped_files, $on_file_skipped): void {
-                    $locales_with_skipped_files[$locale] = true;
+            $on_locale_file_skipped = null;
+
+            if ($on_file_skipped instanceof Closure) {
+                $on_locale_file_skipped = function (string $path, RuntimeException $error) use ($locale, $on_file_skipped, &$locales_with_skipped_files): void {
+                    $locales_with_skipped_files[] = $locale;
                     $on_file_skipped($path, $error);
-                } : null)
-                ->pluck('key')->unique()->all();
+                };
+            }
+
+            $defined_keys[$locale] = $this->getDefinedKeys($locale, $on_locale_file_skipped);
         }
 
-        $dynamic_keys = [];
         // the same key used more than once in a file is detected once.
         // keyBy deduplicates in linear time, unlike unique() with a callback, which is quadratic.
         $unique_keys = $translation_keys->keyBy(fn (UsedTranslationKey $key): string => json_encode([$key->file, $key->value], JSON_THROW_ON_ERROR));
+        $missing = new Collection;
 
+        // the static keys are detected before the dynamic ones, so they are listed first.
         foreach ($unique_keys as $key) {
-            if ($key->value instanceof DynamicTranslationKey) {
-                $dynamic_keys[] = [$key->file, $key->value];
-
-                continue;
-            }
-
-            foreach ($locales as $locale) {
-                if ($ignored_keys->has($key->value, $locale)) {
-                    continue;
-                }
-
-                if (! $this->hasForLocale($key->value, $locale, isset($locales_with_skipped_files[$locale]))) {
-                    $missing->push(new Translation($key->value, $locale, $key->file));
-                }
+            if (\is_string($key->value)) {
+                $missing->push(...$this->detectMissingForKey($key->value, $key->file, $locales, $ignored_keys, $locales_with_skipped_files));
             }
         }
 
-        if ($dynamic_keys !== []) {
-            $missing->push(...$this->detectMissingForDynamicKeys($dynamic_keys, $defined_keys, $ignored_keys));
+        foreach ($unique_keys as $key) {
+            if ($key->value instanceof DynamicTranslationKey) {
+                $missing->push(...$this->detectMissingForDynamicKey($key->value, $key->file, $defined_keys, $ignored_keys));
+            }
         }
 
         // a key used both statically and dynamically in a file is detected once.
         return $missing
             ->keyBy(fn (Translation $translation): string => json_encode([$translation->key, $translation->locale, $translation->file], JSON_THROW_ON_ERROR))
             ->values();
+    }
+
+    /**
+     * @param  (Closure(string, RuntimeException): void)|null  $on_file_skipped
+     * @return array<int, non-falsy-string>
+     */
+    private function getDefinedKeys(string $locale, ?Closure $on_file_skipped): array {
+        return $this->get_app_translations_for_locale->handle($locale, $on_file_skipped)
+            ->map(fn (Translation $translation): string => $translation->key)
+            ->unique()
+            ->all();
+    }
+
+    /**
+     * @param  non-falsy-string  $key
+     * @param  array<string>  $locales
+     * @param  list<string>  $locales_with_skipped_files
+     * @return list<Translation>
+     */
+    private function detectMissingForKey(string $key, string $file, array $locales, IgnoredKeys $ignored_keys, array $locales_with_skipped_files): array {
+        $missing = [];
+
+        foreach ($locales as $locale) {
+            if ($ignored_keys->has($key, $locale)) {
+                continue;
+            }
+
+            if (! $this->hasForLocale($key, $locale, \in_array($locale, $locales_with_skipped_files, true))) {
+                $missing[] = new Translation($key, $locale, $file);
+            }
+        }
+
+        return $missing;
     }
 
     /**
@@ -96,29 +123,29 @@ final readonly class DetectMissingTranslations {
     }
 
     /**
-     * @param  non-empty-list<array{string, DynamicTranslationKey}>  $dynamic_keys  The dynamic keys with the path of the file using them.
-     * @param  array<string, array<array-key, non-falsy-string>>  $defined_keys  The keys defined in the translation files of each locale.
+     * The values of a dynamic key are unknown, so the keys matching it in some locale are missing in the other locales,
+     * and, when no locale defines a matching key, the dynamic key itself is missing in every locale, by its pattern.
+     *
+     * @param  array<string, array<int, non-falsy-string>>  $defined_keys  The keys defined in the translation files of each locale.
      * @return list<Translation>
      */
-    private function detectMissingForDynamicKeys(array $dynamic_keys, array $defined_keys, IgnoredKeys $ignored_keys): array {
-        $locales = array_keys($defined_keys);
+    private function detectMissingForDynamicKey(DynamicTranslationKey $dynamic_key, string $file, array $defined_keys, IgnoredKeys $ignored_keys): array {
+        $matching_keys = array_map(fn (array $keys): array => array_filter($keys, $dynamic_key->matches(...)), $defined_keys);
+        $matching_keys_in_any_locale = array_unique(array_merge(...array_values($matching_keys)));
         $missing = [];
 
-        foreach ($dynamic_keys as [$file, $dynamic_key]) {
-            $matching_keys = array_map(fn (array $keys): array => array_filter($keys, $dynamic_key->matches(...)), $defined_keys);
-            $all_matching_keys = array_unique(array_merge(...array_values($matching_keys)));
+        foreach ($matching_keys as $locale => $matching_keys_in_locale) {
+            if ($ignored_keys->has($dynamic_key->pattern(), $locale)) {
+                continue;
+            }
 
-            foreach ($locales as $locale) {
-                if ($ignored_keys->has($dynamic_key->pattern(), $locale)) {
-                    continue;
-                }
+            $missing_keys = $matching_keys_in_any_locale === []
+                ? [$dynamic_key->pattern()]
+                : array_diff($matching_keys_in_any_locale, $matching_keys_in_locale);
 
-                $missing_keys = $all_matching_keys === [] ? [$dynamic_key->pattern()] : array_diff($all_matching_keys, $matching_keys[$locale]);
-
-                foreach ($missing_keys as $missing_key) {
-                    if (! $ignored_keys->has($missing_key, $locale)) {
-                        $missing[] = new Translation($missing_key, $locale, $file);
-                    }
+            foreach ($missing_keys as $missing_key) {
+                if (! $ignored_keys->has($missing_key, $locale)) {
+                    $missing[] = new Translation($missing_key, $locale, $file);
                 }
             }
         }

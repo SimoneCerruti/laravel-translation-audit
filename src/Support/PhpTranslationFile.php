@@ -101,7 +101,10 @@ final readonly class PhpTranslationFile {
             $removed[spl_object_id($item)] = $item;
 
             foreach (array_reverse($parents) as $parent) {
-                if (! $parent->value instanceof Array_ || ! array_all($parent->value->items, fn (ArrayItem $child): bool => isset($removed[spl_object_id($child)]))) {
+                $is_left_empty = $parent->value instanceof Array_
+                    && array_all($parent->value->items, fn (ArrayItem $child): bool => isset($removed[spl_object_id($child)]));
+
+                if (! $is_left_empty) {
                     break;
                 }
 
@@ -129,9 +132,7 @@ final readonly class PhpTranslationFile {
             $end = $next->pos + 1;
         }
 
-        $line_start = strrpos(substr($this->source, 0, $start), "\n");
-        $line_start = $line_start === false ? 0 : $line_start + 1;
-
+        $line_start = $this->getLineStart($start);
         $is_alone_before = trim(substr($this->source, $line_start, $start - $line_start)) === '';
         $line_rest_length = $this->getLineRestLength($end);
 
@@ -146,6 +147,13 @@ final readonly class PhpTranslationFile {
         $previous = $this->findTokenBefore($item->getStartTokenPos());
 
         return [$previous?->text === ',' ? $previous->pos : $start, $end];
+    }
+
+    /** The offset where the line holding the offset starts. */
+    private function getLineStart(int $offset): int {
+        $previous_line_break = strrpos(substr($this->source, 0, $offset), "\n");
+
+        return $previous_line_break === false ? 0 : $previous_line_break + 1;
     }
 
     /** The length of the rest of the line from the offset, its line break included, when it holds only spaces and a comment, null otherwise. */
@@ -232,8 +240,13 @@ final readonly class PhpTranslationFile {
         return match (true) {
             ! $key instanceof Expr => $next_index,
             $key instanceof Int_ => $key->value,
-            $key instanceof String_ => (string) (int) $key->value === $key->value ? (int) $key->value : $key->value,
+            $key instanceof String_ => self::isIntegerString($key->value) ? (int) $key->value : $key->value,
             default => null,
         };
+    }
+
+    /** Whether PHP casts the string to an integer when used as an array key, like `'5'` but not `'05'` or `'5.0'`. */
+    private static function isIntegerString(string $value): bool {
+        return (string) (int) $value === $value;
     }
 }

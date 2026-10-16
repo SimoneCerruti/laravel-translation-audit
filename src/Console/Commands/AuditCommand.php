@@ -11,6 +11,7 @@ use Illuminate\Support\Str;
 use InvalidArgumentException;
 use RuntimeException;
 use Symfony\Component\Console\Formatter\OutputFormatter;
+use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Finder\SplFileInfo;
@@ -166,7 +167,7 @@ abstract class AuditCommand extends Command {
 
         return [
             ...$this->skipped_files,
-            ...array_map(fn (RuntimeException $error): string => $error->getPrevious()?->getMessage() ?? $error->getMessage(), $this->skipped_translation_files),
+            ...array_map($this->getSkipReason(...), $this->skipped_translation_files),
         ];
     }
 
@@ -206,12 +207,8 @@ abstract class AuditCommand extends Command {
             return new Collection;
         }
 
-        $progress_output = $this->shouldDisableProgressBar() ? new SymfonyStyle($this->input, new NullOutput) : $this->output->getErrorStyle();
-        $progress_bar = $progress_output->createProgressBar($files->count());
-        $progress_bar->setFormat('%current%/%max% [%bar%] %percent:3s%% %message%');
-        $progress_bar->setMessage($this->getRelativePath($files->first()));
-        $progress_bar->start();
-
+        $progress_output = $this->getProgressOutput();
+        $progress_bar = $this->startProgressBar($progress_output, $files);
         $errors = [];
 
         $translation_keys = app(ScanFilesForTranslationKeys::class)->handle(
@@ -223,7 +220,7 @@ abstract class AuditCommand extends Command {
                 $progress_bar->advance();
             },
             function (SplFileInfo $file, RuntimeException $error) use (&$errors): void {
-                $this->skipped_files[$this->getRelativePath($file)] = $error->getPrevious()?->getMessage() ?? $error->getMessage();
+                $this->skipped_files[$this->getRelativePath($file)] = $this->getSkipReason($error);
                 $errors[] = $error;
             },
         );
@@ -238,6 +235,25 @@ abstract class AuditCommand extends Command {
         }
 
         return $translation_keys;
+    }
+
+    /**
+     * Start the progress bar of the scan, showing the file being scanned.
+     *
+     * @param  Collection<int, SplFileInfo>  $files
+     */
+    private function startProgressBar(SymfonyStyle $progress_output, Collection $files): ProgressBar {
+        $progress_bar = $progress_output->createProgressBar($files->count());
+        $progress_bar->setFormat('%current%/%max% [%bar%] %percent:3s%% %message%');
+        $progress_bar->setMessage($this->getRelativePath($files->first()));
+        $progress_bar->start();
+
+        return $progress_bar;
+    }
+
+    /** The reason why the file is skipped: the error of the file, without the path the wrapping error names it by. */
+    private function getSkipReason(RuntimeException $error): string {
+        return $error->getPrevious()?->getMessage() ?? $error->getMessage();
     }
 
     /**
@@ -280,9 +296,17 @@ abstract class AuditCommand extends Command {
         return array_map(fn (string $line): string => "<{$style}>".OutputFormatter::escape($line)."</{$style}>", preg_split('/\R/', $message->text));
     }
 
-    /** Whether to hide the progress bar: when asked to, for an agent, or when the error output is not a terminal. */
-    private function shouldDisableProgressBar(): bool {
-        return $this->shared_config->disable_progress_bar || ! $this->output->getErrorStyle()->isDecorated();
+    /**
+     * The output of the progress bar: the error output, or a null output hiding it when asked to, for an agent, or when the error output is not a terminal.
+     */
+    private function getProgressOutput(): SymfonyStyle {
+        $error_output = $this->output->getErrorStyle();
+
+        if ($this->shared_config->disable_progress_bar || ! $error_output->isDecorated()) {
+            return new SymfonyStyle($this->input, new NullOutput);
+        }
+
+        return $error_output;
     }
 
     /** The file path relative to the project root, with forward slashes on every OS. */

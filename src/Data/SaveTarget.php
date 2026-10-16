@@ -30,11 +30,24 @@ readonly class SaveTarget {
         return rtrim($this->directory, '/\\').DIRECTORY_SEPARATOR."{$this->resolveName()}.{$this->format->value}";
     }
 
+    /** The name with each `{now:<format>}` and `{random:<length>}` pattern replaced, leaving the unknown ones as they are. */
     private function resolveName(): string {
-        return Str::replaceMatches('/\{(\w+)(?::([^}]*))?\}/', fn (array $m): string => match ($m[1]) {
-            'now' => str_replace(['\\', '/', ':'], '-', Carbon::now()->format($m[2] ?? 'Y-m-d')),
-            'random' => Str::random((int) (($n = $m[2] ?? 8) < 0 ? 8 : $n)),
-            default => $m[0],
+        return Str::replaceMatches('/\{(\w+)(?::([^}]*))?\}/', fn (array $match): string => match ($match[1]) {
+            'now' => $this->resolveDate($match[2] ?? 'Y-m-d'),
+            'random' => $this->resolveRandom($match[2] ?? '8'),
+            default => $match[0],
         }, $this->name);
+    }
+
+    /** The current date in the format, with the path separators and the colons replaced by dashes, to keep it a valid file name. */
+    private function resolveDate(string $format): string {
+        return str_replace(['\\', '/', ':'], '-', Carbon::now()->format($format));
+    }
+
+    /** Random alphanumeric characters of the length, 8 when it is negative. */
+    private function resolveRandom(string $length): string {
+        $length = (int) $length;
+
+        return Str::random($length < 0 ? 8 : $length);
     }
 }

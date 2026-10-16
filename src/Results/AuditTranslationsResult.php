@@ -51,7 +51,11 @@ readonly class AuditTranslationsResult implements Result {
 
     /** Whether no translation is missing and, when they are audited, none is unused. */
     public function isClean(): bool {
-        return $this->missing->isEmpty() && ($this->unused ?? new Collection)->isEmpty();
+        if ($this->missing->isNotEmpty()) {
+            return false;
+        }
+
+        return ! $this->unused instanceof Collection || $this->unused->isEmpty();
     }
 
     /**
@@ -161,10 +165,7 @@ readonly class AuditTranslationsResult implements Result {
         }
 
         $format_locales = app(FormatLocales::class);
-        $locales_width = max(array_map(
-            fn (array $keys): int => max(array_map(fn (array $locales): int => mb_strlen($format_locales->handle($locales)), $keys)),
-            $missing,
-        ));
+        $locales_width = $this->getLocalesWidth($missing);
         $key_indent = str_repeat(' ', mb_strlen(self::KEY_INDENT) + $locales_width + mb_strlen(self::LOCALES_GAP));
 
         foreach ($missing as $file_path => $keys) {
@@ -180,6 +181,24 @@ readonly class AuditTranslationsResult implements Result {
                 );
             }
         }
+    }
+
+    /**
+     * The width of the widest list of missing locales, to align the keys following them.
+     *
+     * @param  non-empty-array<string, non-empty-array<non-falsy-string, non-empty-list<string>>>  $missing
+     */
+    private function getLocalesWidth(array $missing): int {
+        $format_locales = app(FormatLocales::class);
+        $width = 0;
+
+        foreach ($missing as $keys) {
+            foreach ($keys as $locales) {
+                $width = max($width, mb_strlen($format_locales->handle($locales)));
+            }
+        }
+
+        return $width;
     }
 
     /**

@@ -95,12 +95,11 @@ final class PurgeTranslationsFromFile {
     private function purgePhpFile(string $path, Collection $keys, bool $dry_run): PurgedTranslations {
         $lines = File::getRequire($path);
         $lines = \is_array($lines) ? Arr::dot($lines) : [];
-        $group = $this->getGroup($path);
+        $line_keys = $this->getLineKeys($keys, $this->getGroup($path));
 
         /** @var Collection<string, string> $translations */
-        $translations = $keys
-            ->filter(fn (string $key): bool => str_starts_with($key, "{$group}."))
-            ->mapWithKeys(fn (string $key): array => [$key => $lines[Str::after($key, "{$group}.")] ?? null])
+        $translations = $line_keys
+            ->map(fn (string $line_key): mixed => $lines[$line_key] ?? null)
             ->filter(fn (mixed $value): bool => \is_string($value));
 
         $file = PhpTranslationFile::parse(File::get($path));
@@ -109,17 +108,16 @@ final class PurgeTranslationsFromFile {
             return new PurgedTranslations(new Collection, $translations->map(fn (): string => self::NOT_LITERAL_ARRAY));
         }
 
-        [$purged, $not_purged] = $translations->partition(fn (string $value, string $key): bool => $file->has(Str::after($key, "{$group}.")));
+        [$purged, $not_purged] = $translations->partition(fn (string $value, string $key): bool => $file->has($line_keys[$key]));
         $not_purged = $not_purged->map(fn (): string => self::NOT_LITERAL_KEY);
 
         if ($purged->isEmpty()) {
             return new PurgedTranslations($purged, $not_purged);
         }
 
-        $line_keys = $purged->keys()->map(fn (string $key): string => Str::after($key, "{$group}."));
-        $source = $file->withoutKeys($line_keys);
-
-        $expected_lines = array_diff_key($lines, $line_keys->flip()->all());
+        $purged_line_keys = $line_keys->only($purged->keys());
+        $source = $file->withoutKeys($purged_line_keys->values());
+        $expected_lines = array_diff_key($lines, $purged_line_keys->flip()->all());
 
         if (! $this->evaluatesTo($source, $expected_lines)) {
             return new PurgedTranslations(new Collection, $translations->map(fn (string $value, string $key): string => $not_purged->get($key, self::NOT_SAME_TRANSLATIONS)));
@@ -150,6 +148,18 @@ final class PurgeTranslationsFromFile {
         } finally {
             File::delete($temporary_path);
         }
+    }
+
+    /**
+     * The keys of the group, mapped to the key of their line in the file, without the group, like Arr::dot names it.
+     *
+     * @param  Collection<int, string>  $keys
+     * @return Collection<string, string>
+     */
+    private function getLineKeys(Collection $keys, string $group): Collection {
+        return $keys
+            ->filter(fn (string $key): bool => str_starts_with($key, "{$group}."))
+            ->mapWithKeys(fn (string $key): array => [$key => Str::after($key, "{$group}.")]);
     }
 
     /** The group of a PHP translation file: its path relative to the locale directory, without the extension. */

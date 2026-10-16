@@ -33,7 +33,15 @@ readonly class PurgeUnusedTranslationsResult implements Result {
 
     /** The number of unused translations that cannot be purged. */
     public function countNotPurged(): int {
-        return array_sum(array_map(fn (array $files): int => array_sum(array_map(\count(...), $files)), $this->not_purged));
+        $count = 0;
+
+        foreach ($this->not_purged as $files) {
+            foreach ($files as $reasons) {
+                $count += \count($reasons);
+            }
+        }
+
+        return $count;
     }
 
     public function print(DisplayFormat $format, OutputInterface $output): void {
