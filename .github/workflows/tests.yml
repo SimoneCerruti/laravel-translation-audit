@@ -69,8 +69,9 @@ jobs:
       - name: Linter
         run: composer pint:dry
 
+      # The type coverage plugin corrupts its cache under parallel analysis before 5.0.1, the version the latest Pest 5 lanes install.
       - name: Type Coverage
-        if: runner.os != 'Windows'
+        if: runner.os != 'Windows' && matrix.laravel == '13.*' && matrix.stability == 'prefer-stable'
         run: composer coverage
 
       - name: Test Suite
