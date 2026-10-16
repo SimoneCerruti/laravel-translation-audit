@@ -11,6 +11,7 @@ use Symfony\Component\Finder\SplFileInfo;
 
 use function Safe\preg_match;
 
+/** @internal */
 final class FindFilesToScan {
     /**
      * Find the project files matching the scan paths and none of the ignored paths, sorted by name.

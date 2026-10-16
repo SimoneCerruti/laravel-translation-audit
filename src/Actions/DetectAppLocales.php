@@ -8,6 +8,7 @@ use Symfony\Component\Finder\Finder;
 use Symfony\Component\Finder\SplFileInfo;
 use TranslationAudit\Exceptions\InvalidConfigException;
 
+/** @internal */
 final class DetectAppLocales {
     /**
      * A language code of two or three letters, optionally followed by subtags separated by a dash or an underscore,

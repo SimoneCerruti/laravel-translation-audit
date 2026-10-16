@@ -9,7 +9,11 @@ use TranslationAudit\Data\DynamicTranslationKey;
 use TranslationAudit\Data\UsedTranslationKey;
 use TranslationAudit\Exceptions\InvalidConfigException;
 
-/** The translation keys to audit as used even though the scan cannot detect them. */
+/**
+ * The translation keys to audit as used even though the scan cannot detect them.
+ *
+ * @internal
+ */
 final readonly class AdditionalKeys {
     /** The file the additional keys are audited as used in. */
     private const string FILE = 'config/translation-audit.php';

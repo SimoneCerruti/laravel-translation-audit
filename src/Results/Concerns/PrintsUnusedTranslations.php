@@ -20,6 +20,8 @@ use function Safe\preg_split;
  * Print the unused translations, grouped by locale and by translation file, as a list or as a table.
  *
  * @phpstan-import-type UnusedTranslations from AuditTranslations
+ *
+ * @internal
  */
 trait PrintsUnusedTranslations {
     private const string LOCALE_INDENT = '  ';

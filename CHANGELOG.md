@@ -2,6 +2,10 @@
 
 ## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.12.7...HEAD)
 
+### Breaking Changes
+
+- Delimit the public API ahead of v1.0: the service provider, the commands, `AuditCommand`, the `TranslationKeyResolver` contract, the `Result` contract and the results, `Data\Translation`, the `DisplayFormat` and `SaveFormat` enums and `InvalidConfigException`. Every other class, like the actions, the support classes and the other data objects, is marked `@internal`, along with `AuditTranslationsResult::withUnused()` and `AuditTranslationsResult::jsonSections()`, and may change in any release. Every concrete class is now `final`, so the commands, the results and the service provider can no longer be extended
+
 ## [v0.12.7](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.12.6...v0.12.7) - 2026-10-16
 
 ### Fixes

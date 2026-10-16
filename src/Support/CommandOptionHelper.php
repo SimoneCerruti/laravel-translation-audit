@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 use Symfony\Component\Console\Input\InputInterface;
 use TranslationAudit\Exceptions\InvalidConfigException;
 
+/** @internal */
 final readonly class CommandOptionHelper {
     public function __construct(
         private InputInterface $input,

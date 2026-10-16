@@ -15,6 +15,7 @@ use TranslationAudit\Support\UsedKeys;
 
 use function Safe\preg_match;
 
+/** @internal */
 final readonly class DetectUnusedTranslations {
     public function __construct(private GetAppTranslationsForLocale $get_app_translations_for_locale) {}
 

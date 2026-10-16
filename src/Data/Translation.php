@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace TranslationAudit\Data;
 
-readonly class Translation {
+final readonly class Translation {
     /**
      * @param  non-falsy-string  $key
      * @param  string  $file  The path of the file the translation refers to: the file using the key when missing, the translation file when unused.

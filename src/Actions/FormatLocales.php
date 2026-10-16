@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace TranslationAudit\Actions;
 
+/** @internal */
 final class FormatLocales {
     /** @param  non-empty-list<string>  $locales */
     public function handle(array $locales): string {

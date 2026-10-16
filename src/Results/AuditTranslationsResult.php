@@ -22,7 +22,7 @@ use TranslationAudit\Results\Contracts\Result;
  * @phpstan-import-type MissingTranslations from AuditTranslations
  * @phpstan-import-type UnusedTranslations from AuditTranslations
  */
-readonly class AuditTranslationsResult implements Result {
+final readonly class AuditTranslationsResult implements Result {
     use PrintsUnusedTranslations;
 
     private const string FILE_INDENT = '  ';
@@ -44,6 +44,8 @@ readonly class AuditTranslationsResult implements Result {
 
     /**
      * @param  Collection<int, Translation>  $unused
+     *
+     * @internal
      */
     public function withUnused(Collection $unused): self {
         return new self($this->missing, $unused, $this->skipped);
@@ -92,6 +94,8 @@ readonly class AuditTranslationsResult implements Result {
      * The sections of the json result: the missing translations, the unused ones when they are audited, and the skipped files when there are any.
      *
      * @return array<string, Collection<array-key, mixed>|stdClass>
+     *
+     * @internal
      */
     public function jsonSections(): array {
         $sections = ['missing' => $this->missingByFile()];

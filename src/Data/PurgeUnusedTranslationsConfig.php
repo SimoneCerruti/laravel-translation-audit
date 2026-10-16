@@ -7,8 +7,12 @@ namespace TranslationAudit\Data;
 use TranslationAudit\Exceptions\InvalidConfigException;
 use TranslationAudit\Support\CommandOptionHelper;
 
-/** The config of the unused translations purge, and the options overriding it. */
-readonly class PurgeUnusedTranslationsConfig {
+/**
+ * The config of the unused translations purge, and the options overriding it.
+ *
+ * @internal
+ */
+final readonly class PurgeUnusedTranslationsConfig {
     public function __construct(
         public bool $is_dry_run,
     ) {}

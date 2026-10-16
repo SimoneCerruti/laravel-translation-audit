@@ -24,7 +24,7 @@ use TranslationAudit\Results\Contracts\Result;
  *
  * @extends AuditCommand<AuditTranslationsResult>
  */
-class AuditTranslations extends AuditCommand {
+final class AuditTranslations extends AuditCommand {
     /** @var string */
     protected $signature = <<<'TXT'
         translation:audit

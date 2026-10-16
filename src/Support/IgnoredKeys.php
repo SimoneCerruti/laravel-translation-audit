@@ -6,7 +6,11 @@ namespace TranslationAudit\Support;
 
 use TranslationAudit\Exceptions\InvalidConfigException;
 
-/** The translation keys to skip in the audit, each in all the locales or only in the listed ones. */
+/**
+ * The translation keys to skip in the audit, each in all the locales or only in the listed ones.
+ *
+ * @internal
+ */
 final readonly class IgnoredKeys {
     /**
      * @param  array<non-empty-string, list<non-empty-string>|null>  $keys  The ignored keys mapped to their ignored locales, null for all locales.

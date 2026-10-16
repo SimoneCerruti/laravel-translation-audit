@@ -17,7 +17,7 @@ use TranslationAudit\Results\Contracts\Result;
 use TranslationAudit\Results\PurgeUnusedTranslationsResult;
 
 /** @extends AuditCommand<PurgeUnusedTranslationsResult> */
-class PurgeUnusedTranslations extends AuditCommand {
+final class PurgeUnusedTranslations extends AuditCommand {
     /** @var string */
     protected $signature = <<<'TXT'
         translation:purge-unused

@@ -19,6 +19,7 @@ use UnexpectedValueException;
 use function Safe\file_get_contents;
 use function Safe\json_decode;
 
+/** @internal */
 final class GetAppTranslationsForLocale {
     /**
      * Get the translations defined in the JSON and PHP translation files of the locale, keyed like the translator expects them.

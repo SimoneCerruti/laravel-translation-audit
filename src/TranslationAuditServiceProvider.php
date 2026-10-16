@@ -8,7 +8,7 @@ use Illuminate\Support\ServiceProvider;
 use TranslationAudit\Console\Commands\AuditTranslations;
 use TranslationAudit\Console\Commands\PurgeUnusedTranslations;
 
-class TranslationAuditServiceProvider extends ServiceProvider {
+final class TranslationAuditServiceProvider extends ServiceProvider {
     /**
      * Register any application services.
      */

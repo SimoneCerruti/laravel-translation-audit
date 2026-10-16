@@ -12,6 +12,7 @@ use Symfony\Component\Finder\SplFileInfo;
 use TranslationAudit\Data\UsedTranslationKey;
 use TranslationAudit\Support\TranslationCalls;
 
+/** @internal */
 final readonly class ScanFilesForTranslationKeys {
     public function __construct(private FindTranslationKeysInFile $find_translation_keys_in_file) {}
 

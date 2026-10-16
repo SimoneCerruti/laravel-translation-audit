@@ -13,6 +13,8 @@ use TranslationAudit\Results\Contracts\Result;
 /**
  * The hooks run before and after the audit, by calling the before and after methods of the hook classes.
  * Each hook is resolved from the container once per run, so its before and after methods share the instance.
+ *
+ * @internal
  */
 final class AuditHooks {
     private const string INVALID_HOOK = 'The "hooks" config must contain only classes defining a before or an after method.';

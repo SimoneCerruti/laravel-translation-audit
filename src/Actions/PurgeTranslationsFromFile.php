@@ -18,6 +18,7 @@ use function Safe\json_decode;
 use function Safe\preg_replace_callback;
 use function Safe\tempnam;
 
+/** @internal */
 final class PurgeTranslationsFromFile {
     public const string NOT_LITERAL_ARRAY = 'The file does not return a literal array.';
 

@@ -6,8 +6,12 @@ namespace TranslationAudit\Data;
 
 use function Safe\preg_match;
 
-/** A translation key built at runtime, e.g. `__("payments.{$method}")`, known only by the static texts around its dynamic parts. */
-readonly class DynamicTranslationKey {
+/**
+ * A translation key built at runtime, e.g. `__("payments.{$method}")`, known only by the static texts around its dynamic parts.
+ *
+ * @internal
+ */
+final readonly class DynamicTranslationKey {
     private string $regex;
 
     /**

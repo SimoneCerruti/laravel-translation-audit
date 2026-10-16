@@ -17,7 +17,11 @@ use PhpParser\Token;
 
 use function Safe\preg_match;
 
-/** The source of a PHP translation file returning a literal array, whose items can be removed leaving the rest of the source untouched. */
+/**
+ * The source of a PHP translation file returning a literal array, whose items can be removed leaving the rest of the source untouched.
+ *
+ * @internal
+ */
 final readonly class PhpTranslationFile {
     /** The rest of a line after an item holding nothing else than spaces and a comment, up to its line break or the end of the source. */
     private const string LINE_REST_PATTERN = <<<'REGEX'

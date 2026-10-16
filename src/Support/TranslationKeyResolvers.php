@@ -16,7 +16,11 @@ use UnexpectedValueException;
 
 use function Safe\preg_match;
 
-/** The custom resolvers of the translation keys built at runtime, which the scan cannot detect. */
+/**
+ * The custom resolvers of the translation keys built at runtime, which the scan cannot detect.
+ *
+ * @internal
+ */
 final readonly class TranslationKeyResolvers {
     private const string INVALID_COVERS = 'the covers must map each glob pattern of the files to the pattern, or the list of patterns, of the dynamic keys.';
 

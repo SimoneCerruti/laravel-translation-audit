@@ -8,8 +8,12 @@ use TranslationAudit\Enums\SaveFormat;
 use TranslationAudit\Exceptions\InvalidConfigException;
 use TranslationAudit\Support\CommandOptionHelper;
 
-/** The config of the translation audit, and the options overriding it. */
-readonly class AuditTranslationsConfig {
+/**
+ * The config of the translation audit, and the options overriding it.
+ *
+ * @internal
+ */
+final readonly class AuditTranslationsConfig {
     /**
      * @param  ?SaveTarget  $save_target  Where to save the audit result, null when it is not saved.
      */

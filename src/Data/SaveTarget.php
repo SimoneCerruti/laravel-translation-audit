@@ -8,8 +8,12 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use TranslationAudit\Enums\SaveFormat;
 
-/** Where and in which format to save the audit result. */
-readonly class SaveTarget {
+/**
+ * Where and in which format to save the audit result.
+ *
+ * @internal
+ */
+final readonly class SaveTarget {
     /**
      * @param  non-empty-string  $directory
      * @param  non-empty-string  $name  The name of the file without the extension. It supports the following patterns, wrapped in curly braces: `now:<format>` for the current date, `random:<length>` for random alphanumeric characters.

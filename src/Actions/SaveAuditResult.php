@@ -9,6 +9,7 @@ use TranslationAudit\Data\SaveTarget;
 use TranslationAudit\Enums\SaveFormat;
 use TranslationAudit\Results\AuditTranslationsResult;
 
+/** @internal */
 final class SaveAuditResult {
     /**
      * Save the audit result in the format of the target, at the path it resolves to.

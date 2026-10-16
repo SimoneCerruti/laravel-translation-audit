@@ -10,7 +10,11 @@ use TranslationAudit\Data\DynamicTranslationKey;
 use TranslationAudit\Data\UsedTranslationKey;
 use TranslationAudit\Exceptions\InvalidConfigException;
 
-/** The values the dynamic part of the dynamic keys can take, by the pattern of the dynamic keys. */
+/**
+ * The values the dynamic part of the dynamic keys can take, by the pattern of the dynamic keys.
+ *
+ * @internal
+ */
 final readonly class DynamicKeyValues {
     /**
      * @param  array<string, non-empty-list<non-empty-string>>  $values  The values of each pattern.

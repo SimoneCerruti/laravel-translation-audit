@@ -8,7 +8,11 @@ use TranslationAudit\Exceptions\InvalidConfigException;
 
 use function Safe\preg_match;
 
-/** The custom translation functions and static methods, besides Laravel's own, with the position of the argument holding the translation key. */
+/**
+ * The custom translation functions and static methods, besides Laravel's own, with the position of the argument holding the translation key.
+ *
+ * @internal
+ */
 final readonly class TranslationCalls {
     private const string NAME_PATTERN = '/^\\\\?[a-z_\x80-\xff][a-z0-9_\x80-\xff]*(\\\\[a-z_\x80-\xff][a-z0-9_\x80-\xff]*)*$/i';
 

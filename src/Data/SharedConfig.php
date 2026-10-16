@@ -17,8 +17,12 @@ use TranslationAudit\Support\IgnoredKeys;
 use TranslationAudit\Support\TranslationCalls;
 use TranslationAudit\Support\TranslationKeyResolvers;
 
-/** The config, and the options overriding it, shared by every command scanning the app for the translation keys it uses. */
-readonly class SharedConfig {
+/**
+ * The config, and the options overriding it, shared by every command scanning the app for the translation keys it uses.
+ *
+ * @internal
+ */
+final readonly class SharedConfig {
     /**
      * @param  list<non-falsy-string>  $scan_paths
      * @param  list<non-falsy-string>  $ignore_paths

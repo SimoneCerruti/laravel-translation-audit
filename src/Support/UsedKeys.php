@@ -8,7 +8,11 @@ use Illuminate\Support\Collection;
 use TranslationAudit\Data\DynamicTranslationKey;
 use TranslationAudit\Data\UsedTranslationKey;
 
-/** The translation keys used in the scanned files, each literal or built at runtime. */
+/**
+ * The translation keys used in the scanned files, each literal or built at runtime.
+ *
+ * @internal
+ */
 final readonly class UsedKeys {
     /**
      * @param  array<string, true>  $keys  The literal keys, as array keys for constant-time lookups.

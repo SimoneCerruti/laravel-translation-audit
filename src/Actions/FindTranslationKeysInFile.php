@@ -29,6 +29,7 @@ use TranslationAudit\Support\TranslationCalls;
 
 use function Safe\file_get_contents;
 
+/** @internal */
 final class FindTranslationKeysInFile {
     private const array TRANSLATION_FUNCTIONS = ['__', 'trans', 'trans_choice'];
 

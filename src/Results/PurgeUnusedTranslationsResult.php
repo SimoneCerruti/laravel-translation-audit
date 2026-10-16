@@ -12,7 +12,7 @@ use TranslationAudit\Enums\DisplayFormat;
 use TranslationAudit\Results\Concerns\PrintsUnusedTranslations;
 use TranslationAudit\Results\Contracts\Result;
 
-readonly class PurgeUnusedTranslationsResult implements Result {
+final readonly class PurgeUnusedTranslationsResult implements Result {
     use PrintsUnusedTranslations;
 
     /**

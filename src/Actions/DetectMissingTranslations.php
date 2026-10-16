@@ -14,6 +14,7 @@ use TranslationAudit\Data\Translation;
 use TranslationAudit\Data\UsedTranslationKey;
 use TranslationAudit\Support\IgnoredKeys;
 
+/** @internal */
 final readonly class DetectMissingTranslations {
     public function __construct(private GetAppTranslationsForLocale $get_app_translations_for_locale) {}
 
