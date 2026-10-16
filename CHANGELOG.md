@@ -2,6 +2,10 @@
 
 ## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.12.6...HEAD)
 
+### Documentation
+
+- Reorder the README by usefulness, presenting the commands first, including `translation:purge-unused`, before the configuration and the advanced key detection, and add a table of contents and a table of the command options
+
 ## [v0.12.6](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.12.5...v0.12.6) - 2026-10-16
 
 ### Fixes
