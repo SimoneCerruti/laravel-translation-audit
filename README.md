@@ -12,10 +12,36 @@
 
 Find the translations your Laravel app is missing, and clean up the ones it no longer uses.
 
-The package looks through your PHP files and Blade views for translation calls like `__()`, `trans()`, `trans_choice()`, `@lang` and `Lang::get()`, and tells you:
+The package looks through your PHP files and Blade views for translation calls like `__()`, `trans()`, `trans_choice()`, `@lang` and `Lang::get()`, and gives you two commands:
 
-- which keys are **missing** a translation in one of your locales;
-- which translations in your `lang` folder are **unused**, so you can remove them.
+- `translation:audit` lists the keys **missing** a translation in one of your locales, and optionally the translations in your `lang` folder that are **unused**;
+- `translation:purge-unused` **removes** the unused translations from your `lang` files.
+
+## Contents
+
+- [Installation](#installation)
+- [Commands](#commands)
+  - [Finding Missing Translations](#finding-missing-translations)
+  - [Finding Unused Translations](#finding-unused-translations)
+  - [Removing Unused Translations](#removing-unused-translations)
+  - [Command Options](#command-options)
+- [Output](#output)
+  - [Output Formats](#output-formats)
+  - [Saving the Result](#saving-the-result)
+  - [Running It from an AI Agent](#running-it-from-an-ai-agent)
+- [Using It in CI](#using-it-in-ci)
+- [Configuration](#configuration)
+  - [Ignoring Keys](#ignoring-keys)
+  - [Files That Can't Be Read](#files-that-cant-be-read)
+  - [Symbolic Links](#symbolic-links)
+- [Detecting Every Key Your App Uses](#detecting-every-key-your-app-uses)
+  - [How Keys Are Counted as Used](#how-keys-are-counted-as-used)
+  - [Custom Translation Calls](#custom-translation-calls)
+  - [Dynamic Keys](#dynamic-keys)
+  - [Additional Keys](#additional-keys)
+  - [Custom Resolvers](#custom-resolvers)
+- [Hooks](#hooks)
+- [Changelog](#changelog)
 
 ## Installation
 
@@ -31,7 +57,9 @@ That's it, no setup needed. If you want to tweak the defaults, publish the confi
 php artisan vendor:publish --tag="laravel-translation-audit-config"
 ```
 
-## Finding Missing Translations
+## Commands
+
+### Finding Missing Translations
 
 Run the audit:
 
@@ -55,7 +83,7 @@ Found 3 keys with missing translations in 2 files.
 
 Your locales are detected from the `lang` folder, or you can list them in the `supported_locales` config.
 
-## Finding Unused Translations
+### Finding Unused Translations
 
 Add `--unused` to also list the translations no file uses:
 
@@ -65,13 +93,180 @@ php artisan translation:audit --unused
 
 To check them on every run, set `audit_unused` to `true` in the config file.
 
+Laravel's own translation files (`auth.php`, `pagination.php`, `passwords.php` and `validation.php`) are skipped, since the framework uses them. See [How Keys Are Counted as Used](#how-keys-are-counted-as-used) for the details, and [Detecting Every Key Your App Uses](#detecting-every-key-your-app-uses) when a translation your app does use is reported as unused.
+
+### Removing Unused Translations
+
+Once you know which translations are unused, you can remove them from your `lang` files in one go. Start with a dry run to see what would be removed, without touching any file:
+
+```bash
+php artisan translation:purge-unused --dry-run
+```
+
+```text
+  IT
+    lang/it.json
+      Goodbye
+        Arrivederci
+    lang/it/messages.php
+      messages.old
+        Vecchio
+
+2 unused translations would be purged.
+```
+
+When you're happy with the list, run it for real:
+
+```bash
+php artisan translation:purge-unused
+```
+
+> [!WARNING]
+> Commit your changes first, so you can review the diff and roll back if needed. Only the lines of the unused translations are removed from the PHP translation files, along with the nested arrays left empty, leaving the rest of the source untouched, like the comments and the computed values. JSON translation files are rewritten keeping their indentation and their final newline, with an indentation of four spaces when they're on a single line.
+
+The same files and keys skipped by the unused audit are never removed.
+
+Some unused translations can't be removed safely, so they're left untouched, even on a dry run:
+
+- the ones of a PHP translation file that doesn't return a literal array, like `return array_merge(...)` or `return $lines`;
+- the ones whose key is known only by running the code, like `Status::PAID => '…'`, a negative key, or an item without a key following one of them or an unpacked array;
+- the ones of a PHP translation file whose purged source wouldn't return the same translations without the removed ones.
+
+A warning names them for each file, along with the reason, and the summary counts them. Only the first five keys of each file are named: add `-v` to name them all. The JSON result lists them in a `not_purged` section, with the reason why each one can't be purged, grouped by locale and translation file:
+
+```json
+{"unused":{},"not_purged":{"it":{"lang/it/legacy.php":{"legacy.old":"The file does not return a literal array."}}}}
+```
+
+Remove them by hand, or list them in [`ignore_keys`](#ignoring-keys).
+
+### Command Options
+
+Most options have a matching config value, and the option always wins for a single run.
+
+| Option | Commands | What it does |
+| --- | --- | --- |
+| `--unused` | `translation:audit` | Also lists the unused translations. |
+| `--save`, `--save-path`, `--save-name` | `translation:audit` | [Saves the result](#saving-the-result) to a JSON file. |
+| `--dry-run` | `translation:purge-unused` | Lists the unused translations without removing them. |
+| `--display-format` | both | Prints the result as a `list`, a `table` or `json`. See [Output Formats](#output-formats). |
+| `--no-progress`, `--no-summary` | both | Hides the progress bar and the summary line. |
+| `--for-agent` | both | Prints only the JSON result. See [Running It from an AI Agent](#running-it-from-an-ai-agent). |
+| `--follow-links` | both | Also scans the files behind symbolic links. See [Symbolic Links](#symbolic-links). |
+
+## Output
+
+### Output Formats
+
+Pick how the result is printed with `--display-format`, or set it once with the `display_format` config:
+
+- `list` (default): the keys grouped by file, like the examples above.
+- `table`: one row per key.
+- `json`: a single line of JSON, handy for scripts.
+
+```bash
+php artisan translation:audit --display-format=json
+```
+
+```json
+{"missing":{"app/Http/Controllers/HomeController.php":{"auth.failed":["it"],"messages.welcome":["en","it"]}}}
+```
+
+When the scan [skips a file](#files-that-cant-be-read), or a translation file can't be read, the JSON result, printed or saved, also has a `skipped` section, with the reason why each skipped file can't be scanned or read, keyed by its path:
+
+```json
+{"missing":{},"skipped":{"resources/views/kits/edit.blade.php":"Syntax error, unexpected '<' on line 2"}}
+```
+
+Only the result goes to the standard output, so `php artisan translation:audit --display-format=json | jq` works as expected. The progress bar, the summary and the messages are printed separately and stay in your terminal.
+
+Use `--no-progress` and `--no-summary` to hide the progress bar and the summary line.
+
+### Saving the Result
+
+Add `--save` to also write the result to a JSON file:
+
+```bash
+php artisan translation:audit --save
+```
+
+By default the file goes to `storage/app/private/translation-audits`. You can change where it's saved and how it's named with `--save-path` and `--save-name`, or the matching config values. The name can include the date and a random string:
+
+```bash
+php artisan translation:audit --save --save-path=/tmp/audits --save-name="audit-{now:Y-m-d}-{random:8}"
+```
+
+### Running It from an AI Agent
+
+When the audit runs inside an AI agent, like Claude Code, Codex, Cursor, Gemini CLI or GitHub Copilot, it detects it and prints only the JSON result, so the agent can read it easily. You can ask for the same output yourself with `--for-agent`:
+
+```bash
+php artisan translation:audit --for-agent
+```
+
+## Using It in CI
+
+The audit fails (non-zero exit code) when it finds missing translations, or unused ones when you ask for them, so it can block a pull request. The package ships a ready-made GitHub workflow that runs it on every push to `main` and on every pull request:
+
+```bash
+php artisan vendor:publish --tag="laravel-translation-audit-workflow"
+```
+
+## Configuration
+
+A few settings are only available in the config file:
+
+| Config | What it does |
+| --- | --- |
+| `scan_paths` | The files to scan, as glob patterns. By default `app/**/*.php`, `database/**/*.php`, `resources/views/**/*.blade.php` and `routes/**/*.php`. |
+| `ignore_paths` | The files to skip, even when they match `scan_paths`. |
+| `supported_locales` | Your app's locales. `['auto']` detects them from the JSON files and the folders of the `lang` folder named like a locale, like `en.json` or `pt_BR`. |
+| `ignore_locales` | The locales to leave out, e.g. `['en']` when your keys are the English text. |
+| `ignore_keys` | The [keys to leave out](#ignoring-keys), for every locale or only for some. |
+| `unused_ignore_paths` | The translation files never reported as unused, nor removed. |
+| `translation_calls` | Your own [translation functions and static methods](#custom-translation-calls), besides Laravel's. |
+| `dynamic_keys` | The values of the [dynamic keys](#dynamic-keys), to audit each value as a key of its own. |
+| `additional_keys` | The [keys to audit](#additional-keys) even though the scan can't detect them. |
+| `resolvers` | The [custom resolvers](#custom-resolvers) of the keys built at runtime by your own logic. |
+| `hooks` | The [hooks](#hooks) run before and after the commands. |
+
+The comments in the published config file describe every setting in detail.
+
+### Ignoring Keys
+
+To ignore a key everywhere, list it on its own. To ignore it only for some locales, map it to them:
+
+```php
+'ignore_keys' => [
+    'Hello',          // ignored for every locale
+    'Hi' => ['en'],   // ignored only for English
+    'payments.*',     // a dynamic key, like __("payments.{$method}"), ignored by its pattern
+],
+```
+
+### Files That Can't Be Read
+
+A file that can't be scanned, like a broken view or one using a Blade component that isn't registered, is skipped with a warning naming it, and the audit goes on with the other files. The JSON result lists it in its [`skipped` section](#output-formats). The translations it uses aren't audited, so they may be reported as unused: fix the file, or add it to `ignore_paths`. The purge removes nothing while a file is skipped, since it would remove the translations that file uses, but a dry run still lists them.
+
+A translation file that can't be read, like one with a syntax error or an empty PHP file that doesn't return an array, is skipped the same way, with a warning naming it, and listed in the `skipped` section too. Its translations aren't audited, so the keys the translator can't load in its locale aren't reported as missing, while the other locales and translation files are still audited. The purge leaves it untouched and goes on with the other translation files.
+
+### Symbolic Links
+
+Symbolic links aren't followed by default. Pass `--follow-links`, or set `always_follow_links` to `true`, to scan the files behind them too. `vendor` and `node_modules` are never followed.
+
+## Detecting Every Key Your App Uses
+
+The audit is only as good as the keys it finds. Out of the box it reads Laravel's own translation calls with a literal key; the sections below cover the keys it can't see on its own, which would otherwise be reported as unused, and removed by the purge.
+
+### How Keys Are Counted as Used
+
 A key returning an array uses all the translations nested in it: with `__('settings.languages')`, every `settings.languages.*` translation counts as used.
 
 A key with leading slashes uses the translations of the same PHP file, like the translator: `__('/admin/form.title')` uses `admin/form.title`.
 
-Laravel's own translation files (`auth.php`, `pagination.php`, `passwords.php` and `validation.php`) are skipped, since the framework uses them, whether your `lang` folder is at the project root or in `resources`. You can change this list with the `unused_ignore_paths` config.
+Laravel's own translation files (`auth.php`, `pagination.php`, `passwords.php` and `validation.php`) are never reported as unused, since the framework uses them, whether your `lang` folder is at the project root or in `resources`. You can change this list with the `unused_ignore_paths` config.
 
-## Custom Translation Calls
+### Custom Translation Calls
 
 The audit reads the keys passed to Laravel's own translation calls: `__()`, `trans()`, `trans_choice()`, the `Lang` facade, and the translator returned by `trans()` and `app('translator')`. If your app translates through its own helpers, list them in the `translation_calls` config, or their keys are reported as unused, and removed by the purge:
 
@@ -89,7 +284,7 @@ A function or static method listed on its own takes the key as its first argumen
 
 Only calls passing the key by position are read, not by a named argument. Calls on an instance, like `$translator->translate('messages.welcome')`, can't be followed by the scan: list the keys they use in [`additional_keys`](#additional-keys), or return them from a [custom resolver](#custom-resolvers). A custom Blade directive is read through the code it compiles to, so `@t('messages.welcome')` compiling to `t('messages.welcome')` only needs `t` in the config.
 
-## Dynamic Keys
+### Dynamic Keys
 
 Keys built at runtime, like `__("payments.{$method}")` or `__('payments.'.$method)`, can't be checked one by one, since their values are unknown. The audit reads them as the pattern `payments.*` instead:
 
@@ -110,7 +305,20 @@ When you know the values a dynamic key can take, list them in the `dynamic_keys`
 
 A pattern has a single asterisk, in place of the dynamic part of the key.
 
-## Custom Resolvers
+### Additional Keys
+
+Some keys never appear in the scanned files, like those used only by your frontend, or read from the database. List them in the `additional_keys` config to audit them anyway:
+
+```php
+'additional_keys' => [
+    'messages.welcome',
+    'payments.*',      // audited as a dynamic key
+],
+```
+
+The additional keys are audited as used in `config/translation-audit.php`, which is where their missing translations are reported. They are never reported as unused, nor removed by the purge. A key with an asterisk in place of each dynamic part, like `payments.*`, is audited as a [dynamic key](#dynamic-keys), expanded by the `dynamic_keys` config when it lists its values. `ignore_keys` still applies to them.
+
+### Custom Resolvers
 
 Some keys are built by logic that a scan can't follow, and that a list of values can't describe, like a label key derived from the enum case:
 
@@ -199,156 +407,6 @@ use TranslationAudit\Console\Commands\PurgeUnusedTranslations;
 The hooks run in the order of the config. Each one is resolved from the container once per run, so its `before` and `after` methods share the instance. The methods are called through the container: the command is passed to the `$command` argument, or to an argument typed as the command class, the result to the `$result` argument of `after`, or to an argument typed as the result class, and any other dependency is injected.
 
 A hook throwing an exception fails the command with its message. A failing `before` hook stops the command before the scan, while a failing `after` hook runs once the command is done, so the purge has already removed the unused translations.
-
-## Additional Keys
-
-Some keys never appear in the scanned files, like those used only by your frontend, or read from the database. List them in the `additional_keys` config to audit them anyway:
-
-```php
-'additional_keys' => [
-    'messages.welcome',
-    'payments.*',      // audited as a dynamic key
-],
-```
-
-The additional keys are audited as used in `config/translation-audit.php`, which is where their missing translations are reported. They are never reported as unused, nor removed by the purge. A key with an asterisk in place of each dynamic part, like `payments.*`, is audited as a [dynamic key](#dynamic-keys), expanded by the `dynamic_keys` config when it lists its values. `ignore_keys` still applies to them.
-
-## Removing Unused Translations
-
-Once you know which translations are unused, you can remove them from your `lang` files in one go. Start with a dry run to see what would be removed, without touching any file:
-
-```bash
-php artisan translation:purge-unused --dry-run
-```
-
-```text
-  IT
-    lang/it.json
-      Goodbye
-        Arrivederci
-    lang/it/messages.php
-      messages.old
-        Vecchio
-
-2 unused translations would be purged.
-```
-
-When you're happy with the list, run it for real:
-
-```bash
-php artisan translation:purge-unused
-```
-
-> [!WARNING]
-> Commit your changes first, so you can review the diff and roll back if needed. Only the lines of the unused translations are removed from the PHP translation files, along with the nested arrays left empty, leaving the rest of the source untouched, like the comments and the computed values. JSON translation files are rewritten keeping their indentation and their final newline, with an indentation of four spaces when they're on a single line.
-
-The same files and keys skipped by the unused audit are never removed.
-
-Some unused translations can't be removed safely, so they're left untouched, even on a dry run:
-
-- the ones of a PHP translation file that doesn't return a literal array, like `return array_merge(...)` or `return $lines`;
-- the ones whose key is known only by running the code, like `Status::PAID => '…'`, a negative key, or an item without a key following one of them or an unpacked array;
-- the ones of a PHP translation file whose purged source wouldn't return the same translations without the removed ones.
-
-A warning names them for each file, along with the reason, and the summary counts them. Only the first five keys of each file are named: add `-v` to name them all. The JSON result lists them in a `not_purged` section, with the reason why each one can't be purged, grouped by locale and translation file:
-
-```json
-{"unused":{},"not_purged":{"it":{"lang/it/legacy.php":{"legacy.old":"The file does not return a literal array."}}}}
-```
-
-Remove them by hand, or list them in `ignore_keys`.
-
-## Using It in CI
-
-The audit fails (non-zero exit code) when it finds missing translations, or unused ones when you ask for them, so it can block a pull request. The package ships a ready-made GitHub workflow that runs it on every push to `main` and on every pull request:
-
-```bash
-php artisan vendor:publish --tag="laravel-translation-audit-workflow"
-```
-
-## Output Formats
-
-Pick how the result is printed with `--display-format`, or set it once with the `display_format` config:
-
-- `list` (default): the keys grouped by file, like the examples above.
-- `table`: one row per key.
-- `json`: a single line of JSON, handy for scripts.
-
-```bash
-php artisan translation:audit --display-format=json
-```
-
-```json
-{"missing":{"app/Http/Controllers/HomeController.php":{"auth.failed":["it"],"messages.welcome":["en","it"]}}}
-```
-
-When the scan [skips a file](#configuration), or a translation file can't be read, the JSON result, printed or saved, also has a `skipped` section, with the reason why each skipped file can't be scanned or read, keyed by its path:
-
-```json
-{"missing":{},"skipped":{"resources/views/kits/edit.blade.php":"Syntax error, unexpected '<' on line 2"}}
-```
-
-Only the result goes to the standard output, so `php artisan translation:audit --display-format=json | jq` works as expected. The progress bar, the summary and the messages are printed separately and stay in your terminal.
-
-Use `--no-progress` and `--no-summary` to hide the progress bar and the summary line.
-
-## Running It from an AI Agent
-
-When the audit runs inside an AI agent, like Claude Code, Codex, Cursor, Gemini CLI or GitHub Copilot, it detects it and prints only the JSON result, so the agent can read it easily. You can ask for the same output yourself with `--for-agent`:
-
-```bash
-php artisan translation:audit --for-agent
-```
-
-## Saving the Result
-
-Add `--save` to also write the result to a JSON file:
-
-```bash
-php artisan translation:audit --save
-```
-
-By default the file goes to `storage/app/private/translation-audits`. You can change where it's saved and how it's named with `--save-path` and `--save-name`, or the matching config values. The name can include the date and a random string:
-
-```bash
-php artisan translation:audit --save --save-path=/tmp/audits --save-name="audit-{now:Y-m-d}-{random:8}"
-```
-
-## Configuration
-
-Most options have a matching config value, and the option always wins for a single run. A few settings are only available in the config file:
-
-| Config | What it does |
-| --- | --- |
-| `scan_paths` | The files to scan, as glob patterns. By default `app/**/*.php`, `database/**/*.php`, `resources/views/**/*.blade.php` and `routes/**/*.php`. |
-| `ignore_paths` | The files to skip, even when they match `scan_paths`. |
-| `supported_locales` | Your app's locales. `['auto']` detects them from the JSON files and the folders of the `lang` folder named like a locale, like `en.json` or `pt_BR`. |
-| `ignore_locales` | The locales to leave out, e.g. `['en']` when your keys are the English text. |
-| `translation_calls` | Your own [translation functions and static methods](#custom-translation-calls), besides Laravel's. |
-| `ignore_keys` | The keys to leave out, for every locale or only for some. |
-| `additional_keys` | The [keys to audit](#additional-keys) even though the scan can't detect them. |
-| `dynamic_keys` | The values of the [dynamic keys](#dynamic-keys), to audit each value as a key of its own. |
-| `resolvers` | The [custom resolvers](#custom-resolvers) of the keys built at runtime by your own logic. |
-| `hooks` | The [hooks](#hooks) run before and after the commands. |
-| `unused_ignore_paths` | The translation files never reported as unused, nor removed. |
-
-To ignore a key everywhere, list it on its own. To ignore it only for some locales, map it to them:
-
-```php
-'ignore_keys' => [
-    'Hello',          // ignored for every locale
-    'Hi' => ['en'],   // ignored only for English
-    'payments.*',     // a dynamic key, like __("payments.{$method}"), ignored by its pattern
-],
-```
-
-A file that can't be scanned, like a broken view or one using a Blade component that isn't registered, is skipped with a warning naming it, and the audit goes on with the other files. The JSON result lists it in its [`skipped` section](#output-formats). The translations it uses aren't audited, so they may be reported as unused: fix the file, or add it to `ignore_paths`. The purge removes nothing while a file is skipped, since it would remove the translations that file uses, but a dry run still lists them.
-
-A translation file that can't be read, like one with a syntax error or an empty PHP file that doesn't return an array, is skipped the same way, with a warning naming it, and listed in the `skipped` section too. Its translations aren't audited, so the keys the translator can't load in its locale aren't reported as missing, while the other locales and translation files are still audited. The purge leaves it untouched and goes on with the other translation files.
-
-Symbolic links aren't followed by default. Pass `--follow-links`, or set `always_follow_links` to `true`, to scan the files behind them too. `vendor` and `node_modules` are never followed.
-
-The comments in the published config file describe every setting in detail.
 
 ## Changelog
 
