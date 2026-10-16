@@ -832,6 +832,7 @@ describe('missing translations', function (): void {
         putFile('lang/en/messages.php', "<?php return ['welcome' => 'Welcome'];");
         putFile('lang/it/messages.php', $contents);
         putFile('app/Example.php', "<?php __('Hello'); __('messages.welcome'); __('messages.old'); __('other.title');");
+        putFile('app/Dynamic.php', "<?php __('messages.'.\$key);");
 
         $output = auditWithSeparateOutputs(['--display-format' => 'json']);
 

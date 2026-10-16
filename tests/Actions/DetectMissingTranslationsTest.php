@@ -77,6 +77,10 @@ describe('dynamic keys', function (): void {
         putFile('lang/en/payments.php', "<?php return ['card' => 'Card', 'paypal' => ['label' => 'PayPal']];");
         putFile('lang/it/payments.php', "<?php return ['card' => 'Carta'];");
         putJsonTranslations('it', ['Status active' => 'Stato attivo']);
+
+        // the lines added before each test mark the json translations as loaded: a fresh translator reads the files, as in an app.
+        app()->forgetInstance('translator');
+        Lang::clearResolvedInstance('translator');
     });
 
     it('returns a translation for each locale missing a key matching a dynamic key in another locale', function (): void {
@@ -113,6 +117,35 @@ describe('dynamic keys', function (): void {
 
         expect(detectMissingForKeys($keys, ignore_keys: ['payments.paypal.label', 'orders.*.label' => ['it']]))->toEqual([
             new Translation('orders.*.label', 'en', 'app/Orders.php'),
+        ]);
+    });
+
+    it('detects a key matching a dynamic key as missing only when the translator lacks it, like a static key', function (): void {
+        putFile('lang/en/plans.php', "<?php return ['basic' => 'Basic', 'pro' => ['label' => 'Pro']];");
+        putFile('lang/it/plans.php', "<?php return ['basic' => ['label' => 'Base'], 'pro' => 'Pro'];");
+
+        expect(detectMissingForKeys(['app/Plans.php' => [new DynamicTranslationKey(['plans.', ''])]]))->toEqual([
+            new Translation('plans.basic.label', 'en', 'app/Plans.php'),
+            new Translation('plans.pro.label', 'it', 'app/Plans.php'),
+        ]);
+    });
+
+    it('detects a key matching a dynamic key as present in the locale of the translations of the framework', function (): void {
+        putFile('lang/en/validation.php', "<?php return ['custom' => ['email' => ['required' => 'Email!']]];");
+        putFile('lang/it/validation.php', "<?php return ['ends_with' => 'Deve finire con :values.'];");
+
+        expect(detectMissingForKeys(['app/Rules.php' => [new DynamicTranslationKey(['validation.', ''])]]))->toEqual([
+            new Translation('validation.custom.email.required', 'it', 'app/Rules.php'),
+        ]);
+    });
+
+    it('detects a key matching a dynamic key as missing in every locale when the translator cannot resolve it, like a key with dots in an array key', function (): void {
+        putFile('lang/en/settings.php', "<?php return ['ipmi.type' => ['help' => 'The IPMI type']];");
+        putFile('lang/it/settings.php', "<?php return ['ipmi.type' => ['help' => 'Il tipo IPMI']];");
+
+        expect(detectMissingForKeys(['app/Settings.php' => [new DynamicTranslationKey(['settings.', '.help'])]]))->toEqual([
+            new Translation('settings.ipmi.type.help', 'en', 'app/Settings.php'),
+            new Translation('settings.ipmi.type.help', 'it', 'app/Settings.php'),
         ]);
     });
 
