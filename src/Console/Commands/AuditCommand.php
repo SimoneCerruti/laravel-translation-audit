@@ -14,17 +14,20 @@ use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\Finder\Glob;
 use Symfony\Component\Finder\SplFileInfo;
 use TranslationAudit\Actions\FindFilesToScan;
 use TranslationAudit\Actions\ScanFilesForTranslationKeys;
 use TranslationAudit\Data\DisplayMessage;
 use TranslationAudit\Data\SharedConfig;
 use TranslationAudit\Data\UsedTranslationKey;
+use TranslationAudit\Enums\AuditType;
 use TranslationAudit\Enums\MessageSeverity;
 use TranslationAudit\Exceptions\InvalidConfigException;
 use TranslationAudit\Results\Contracts\Result;
 use TranslationAudit\Support\CommandOptionHelper;
 
+use function Safe\preg_match;
 use function Safe\preg_split;
 
 /**
@@ -55,6 +58,13 @@ abstract class AuditCommand extends Command {
      * @var array<string, string>
      */
     protected array $skipped_files = [];
+
+    /**
+     * The paths of the scanned files, relative to the project root, as keys.
+     *
+     * @var array<string, true>
+     */
+    private array $scanned_files = [];
 
     /**
      * The error naming each translation file skipped because it cannot be read, keyed by its path relative to the project root.
@@ -132,18 +142,38 @@ abstract class AuditCommand extends Command {
     }
 
     /**
-     * Find the files to scan and scan them for the translation keys they use, skipping the files that cannot be scanned with a warning, adding the additional keys in the config,
-     * expanding the dynamic keys with values in the config, then replacing the dynamic keys covered by the resolvers with the keys they resolve.
+     * Find the files to scan, skipping the ones every audit ignores, and scan them for the translation keys they use, skipping the files that cannot be scanned with a warning,
+     * adding the additional keys in the config, expanding the dynamic keys with values in the config, then replacing the dynamic keys covered by the resolvers with the keys they resolve.
      *
      * @return Collection<int, UsedTranslationKey>
      */
     protected function findTranslationKeys(): Collection {
-        $files = app(FindFilesToScan::class)->handle($this->shared_config->scan_paths, $this->shared_config->ignore_paths, $this->shared_config->follow_links, $this->shared_config->ignore_links);
+        $files = app(FindFilesToScan::class)->handle($this->shared_config->scan_paths, $this->shared_config->ignore_paths->forEveryAudit(), $this->shared_config->follow_links, $this->shared_config->ignore_links);
+        $this->scanned_files = array_fill_keys($files->map($this->getRelativePath(...))->all(), true);
 
         return $this->scanFiles($files)
             ->pipe($this->shared_config->additional_keys->apply(...))
             ->pipe($this->shared_config->dynamic_keys->expand(...))
             ->pipe($this->shared_config->resolvers->apply(...));
+    }
+
+    /**
+     * The translation keys the audit counts as used: the keys found, without those of the scanned files the ignore_paths config ignores only in this audit.
+     * The keys added by the config or by the resolvers, used in no scanned file, are always kept.
+     *
+     * @param  Collection<int, UsedTranslationKey>  $translation_keys
+     * @return Collection<int, UsedTranslationKey>
+     */
+    protected function translationKeysFor(Collection $translation_keys, AuditType $audit): Collection {
+        $regexes = array_map(Glob::toRegex(...), $this->shared_config->ignore_paths->onlyFor($audit));
+
+        if ($regexes === []) {
+            return $translation_keys;
+        }
+
+        return $translation_keys
+            ->reject(fn (UsedTranslationKey $key): bool => isset($this->scanned_files[$key->file]) && array_any($regexes, fn (string $regex): bool => preg_match($regex, $key->file) === 1))
+            ->values();
     }
 
     /** Skip the translation file that cannot be read, keeping the error naming it. */

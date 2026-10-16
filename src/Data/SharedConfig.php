@@ -7,10 +7,12 @@ namespace TranslationAudit\Data;
 use InvalidArgumentException;
 use Laravel\AgentDetector\AgentDetector;
 use TranslationAudit\Actions\DetectAppLocales;
+use TranslationAudit\Enums\AuditType;
 use TranslationAudit\Enums\DisplayFormat;
 use TranslationAudit\Exceptions\InvalidConfigException;
 use TranslationAudit\Support\AdditionalKeys;
 use TranslationAudit\Support\AuditHooks;
+use TranslationAudit\Support\AuditScopedList;
 use TranslationAudit\Support\CommandOptionHelper;
 use TranslationAudit\Support\DynamicKeyValues;
 use TranslationAudit\Support\IgnoredKeys;
@@ -25,22 +27,19 @@ use TranslationAudit\Support\TranslationKeyResolvers;
 final readonly class SharedConfig {
     /**
      * @param  list<non-falsy-string>  $scan_paths
-     * @param  list<non-falsy-string>  $ignore_paths
+     * @param  AuditScopedList  $ignore_paths  The glob patterns of the scanned files whose keys are skipped, and of the translation files whose translations are skipped, by every audit or only by one.
      * @param  list<non-falsy-string>  $ignore_links
      * @param  list<string>  $supported_locales
-     * @param  list<non-falsy-string>  $ignore_locales
-     * @param  list<non-falsy-string>  $unused_ignore_paths
      * @param  DisplayFormat  $display_format  The format in which to display the result, json for an agent.
      * @param  bool  $disable_progress_bar  Whether the progress bar is hidden when asked to or for an agent, regardless of the output being a terminal.
      * @param  bool  $disable_summary  Whether the result summary is hidden when asked to or for an agent.
      */
     public function __construct(
         public array $scan_paths,
-        public array $ignore_paths,
+        public AuditScopedList $ignore_paths,
         public array $ignore_links,
         public array $supported_locales,
-        public array $ignore_locales,
-        public array $unused_ignore_paths,
+        public AuditScopedList $ignore_locales,
         public IgnoredKeys $ignore_keys,
         public AdditionalKeys $additional_keys,
         public DynamicKeyValues $dynamic_keys,
@@ -62,11 +61,10 @@ final readonly class SharedConfig {
 
         return new self(
             scan_paths: self::getScanPaths(),
-            ignore_paths: self::getConfigStringList('ignore_paths'),
+            ignore_paths: AuditScopedList::fromConfig('ignore_paths', self::getConfigArray('ignore_paths')),
             ignore_links: self::getConfigStringList('ignore_links'),
             supported_locales: self::getSupportedLocales(),
-            ignore_locales: self::getConfigStringList('ignore_locales'),
-            unused_ignore_paths: self::getConfigStringList('unused_ignore_paths'),
+            ignore_locales: AuditScopedList::fromConfig('ignore_locales', self::getConfigArray('ignore_locales')),
             ignore_keys: IgnoredKeys::fromConfig(self::getConfigArray('ignore_keys')),
             additional_keys: AdditionalKeys::fromConfig(self::getConfigArray('additional_keys')),
             dynamic_keys: DynamicKeyValues::fromConfig(self::getConfigArray('dynamic_keys')),
@@ -84,12 +82,12 @@ final readonly class SharedConfig {
     }
 
     /**
-     * The supported locales which are not ignored.
+     * The supported locales which the audit does not ignore.
      *
      * @return list<string>
      */
-    public function locales(): array {
-        return array_values(array_diff($this->supported_locales, $this->ignore_locales));
+    public function locales(AuditType $audit): array {
+        return array_values(array_diff($this->supported_locales, $this->ignore_locales->for($audit)));
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Console\Command\Command;
 use TranslationAudit\Console\Commands\PurgeUnusedTranslations;
+use TranslationAudit\Enums\AuditType;
 use TranslationAudit\Tests\Fixtures\OrderStatusLabelResolver;
 
 use function Pest\Laravel\artisan;
@@ -114,7 +115,7 @@ describe('purge', function (): void {
     });
 
     it('purges the unused translations once the files that cannot be scanned are ignored', function (): void {
-        config(['translation-audit.ignore_paths' => ['app/Broken.php']]);
+        config(['translation-audit.ignore_paths' => [...config('translation-audit.ignore_paths'), 'app/Broken.php']]);
         putFile('app/Broken.php', '<?php function (');
 
         purgeAsJson()
@@ -172,8 +173,8 @@ describe('purge', function (): void {
         expect(File::get(lang_path('it.json')))->toBe($contents);
     });
 
-    it('leaves the files matching the unused ignore paths untouched', function (): void {
-        config(['translation-audit.unused_ignore_paths' => ['lang/*/messages.php', 'lang/*/admin/*.php', 'lang/*/validation.php']]);
+    it('leaves the translation files matching the ignore paths of every audit or of the unused one untouched', function (): void {
+        config(['translation-audit.ignore_paths' => ['lang/*/messages.php', 'lang/*/admin/*.php' => AuditType::Unused, 'lang/*/validation.php' => AuditType::Unused]]);
         $contents = File::get(lang_path('it/messages.php'));
 
         purgeAsJson()
@@ -289,6 +290,39 @@ describe('purge', function (): void {
         expect(File::getRequire(lang_path('it/messages.php')))->toBe(['welcome' => 'Benvenuto', 'old' => 'Vecchio', 'nested' => ['used' => 'Usato']])
             ->and(File::getRequire(lang_path('it/admin/users.php')))->toBe(['title' => 'Utenti'])
             ->and(json_decode(File::get(lang_path('en.json')), true))->toBe(['Hello' => 'Hello', 'Bye' => 'Bye']);
+    });
+
+    it('leaves the translations used by the scanned files the missing audit ignores untouched', function (): void {
+        putFile('app/Seeder.php', "<?php __('messages.old');");
+        config(['translation-audit.ignore_paths' => [...config('translation-audit.ignore_paths'), 'app/Seeder.php' => AuditType::Missing]]);
+
+        purgeAsJson()
+            ->expectsOutput('{"unused":{"en":{"lang/en.json":{"Bye":"Bye"}},"it":{"lang/it/admin/users.php":{"admin/users.title":"Utenti"},"lang/it/messages.php":{"messages.nested.unused":"Inutilizzato"}}}}')
+            ->expectsOutput('3 unused translations purged.')
+            ->assertSuccessful();
+
+        expect(File::getRequire(lang_path('it/messages.php')))->toBe(['welcome' => 'Benvenuto', 'old' => 'Vecchio', 'nested' => ['used' => 'Usato']]);
+    });
+
+    it('purges the translations used only by the scanned files the unused audit ignores', function (): void {
+        putFile('app/Legacy.php', "<?php __('messages.old');");
+        config(['translation-audit.ignore_paths' => [...config('translation-audit.ignore_paths'), 'app/Legacy.php' => AuditType::Unused]]);
+
+        purgeAsJson()
+            ->expectsOutput(UNUSED_JSON)
+            ->expectsOutput('4 unused translations purged.')
+            ->assertSuccessful();
+    });
+
+    it('purges the locales left out only of the missing audit, and leaves those left out of the unused one untouched', function (): void {
+        config(['translation-audit.ignore_locales' => ['en' => AuditType::Unused, 'it' => AuditType::Missing]]);
+
+        purgeAsJson()
+            ->expectsOutput('{"unused":{"it":{"lang/it/admin/users.php":{"admin/users.title":"Utenti"},"lang/it/messages.php":{"messages.old":"Vecchio","messages.nested.unused":"Inutilizzato"}}}}')
+            ->expectsOutput('3 unused translations purged.')
+            ->assertSuccessful();
+
+        expect(json_decode(File::get(lang_path('en.json')), true, flags: JSON_THROW_ON_ERROR))->toBe(['Hello' => 'Hello', 'Bye' => 'Bye']);
     });
 
     it('leaves the ignored locales and keys untouched', function (): void {

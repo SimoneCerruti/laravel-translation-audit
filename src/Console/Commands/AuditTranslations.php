@@ -12,6 +12,7 @@ use TranslationAudit\Actions\SaveAuditResult;
 use TranslationAudit\Data\AuditTranslationsConfig;
 use TranslationAudit\Data\DisplayMessage;
 use TranslationAudit\Data\SaveTarget;
+use TranslationAudit\Enums\AuditType;
 use TranslationAudit\Enums\MessageSeverity;
 use TranslationAudit\Results\AuditTranslationsResult;
 use TranslationAudit\Results\Contracts\Result;
@@ -46,11 +47,21 @@ final class AuditTranslations extends AuditCommand {
 
     protected function perform(): AuditTranslationsResult {
         $translation_keys = $this->findTranslationKeys();
-        $locales = $this->shared_config->locales();
 
-        $missing = app(DetectMissingTranslations::class)->handle($translation_keys, $locales, $this->shared_config->ignore_keys, $this->skipTranslationFile(...));
+        $missing = app(DetectMissingTranslations::class)->handle(
+            $this->translationKeysFor($translation_keys, AuditType::Missing),
+            $this->shared_config->locales(AuditType::Missing),
+            $this->shared_config->ignore_keys,
+            $this->skipTranslationFile(...),
+        );
         $unused = $this->config->audit_unused
-            ? app(DetectUnusedTranslations::class)->handle($translation_keys, $locales, $this->shared_config->unused_ignore_paths, $this->shared_config->ignore_keys, $this->skipTranslationFile(...))
+            ? app(DetectUnusedTranslations::class)->handle(
+                $this->translationKeysFor($translation_keys, AuditType::Unused),
+                $this->shared_config->locales(AuditType::Unused),
+                $this->shared_config->ignore_paths->for(AuditType::Unused),
+                $this->shared_config->ignore_keys,
+                $this->skipTranslationFile(...),
+            )
             : null;
 
         $result = new AuditTranslationsResult($missing, $unused, $this->warnForSkippedTranslationFiles());

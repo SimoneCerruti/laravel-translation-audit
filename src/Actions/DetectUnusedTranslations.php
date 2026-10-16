@@ -10,6 +10,7 @@ use RuntimeException;
 use Symfony\Component\Finder\Glob;
 use TranslationAudit\Data\Translation;
 use TranslationAudit\Data\UsedTranslationKey;
+use TranslationAudit\Enums\AuditType;
 use TranslationAudit\Support\IgnoredKeys;
 use TranslationAudit\Support\UsedKeys;
 
@@ -56,7 +57,7 @@ final readonly class DetectUnusedTranslations {
 
     /** @param  array<string>  $ignore_paths */
     private function isIgnored(Translation $translation, array $ignore_paths, IgnoredKeys $ignored_keys): bool {
-        if ($ignored_keys->has($translation->key, $translation->locale)) {
+        if ($ignored_keys->has($translation->key, $translation->locale, AuditType::Unused)) {
             return true;
         }
 

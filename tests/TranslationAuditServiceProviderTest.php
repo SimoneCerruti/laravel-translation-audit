@@ -6,13 +6,19 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\ServiceProvider;
 use TranslationAudit\Console\Commands\AuditTranslations;
 use TranslationAudit\Console\Commands\PurgeUnusedTranslations;
+use TranslationAudit\Enums\AuditType;
 use TranslationAudit\Enums\DisplayFormat;
 use TranslationAudit\Enums\SaveFormat;
 use TranslationAudit\TranslationAuditServiceProvider;
 
 it('merges the package config', function (): void {
     expect(config('translation-audit.scan_paths'))->toBe(['app/**/*.php', 'database/**/*.php', 'resources/views/**/*.blade.php', 'routes/**/*.php'])
-        ->and(config('translation-audit.ignore_paths'))->toBe([])
+        ->and(config('translation-audit.ignore_paths'))->toBe([
+            '{lang,resources/lang}/*/auth.php' => AuditType::Unused,
+            '{lang,resources/lang}/*/pagination.php' => AuditType::Unused,
+            '{lang,resources/lang}/*/passwords.php' => AuditType::Unused,
+            '{lang,resources/lang}/*/validation.php' => AuditType::Unused,
+        ])
         ->and(config('translation-audit.ignore_links'))->toBe(['vendor', 'node_modules'])
         ->and(config('translation-audit.ignore_locales'))->toBe([])
         ->and(config('translation-audit.supported_locales'))->toBe(['auto'])
@@ -23,7 +29,7 @@ it('merges the package config', function (): void {
         ->and(config('translation-audit.save_name'))->toBe('translation-audit-{now:d_M_Y_H_i}-{random:8}')
         ->and(config('translation-audit.display_format'))->toBe(DisplayFormat::List)
         ->and(config('translation-audit.audit_unused'))->toBeFalse()
-        ->and(config('translation-audit.unused_ignore_paths'))->toBe(['{lang,resources/lang}/*/auth.php', '{lang,resources/lang}/*/pagination.php', '{lang,resources/lang}/*/passwords.php', '{lang,resources/lang}/*/validation.php']);
+        ->and(config()->has('translation-audit.unused_ignore_paths'))->toBeFalse();
 });
 
 it('registers the artisan commands', function (string $name, string $class): void {

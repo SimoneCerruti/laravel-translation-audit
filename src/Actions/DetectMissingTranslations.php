@@ -12,6 +12,7 @@ use Throwable;
 use TranslationAudit\Data\DynamicTranslationKey;
 use TranslationAudit\Data\Translation;
 use TranslationAudit\Data\UsedTranslationKey;
+use TranslationAudit\Enums\AuditType;
 use TranslationAudit\Support\IgnoredKeys;
 
 /** @internal */
@@ -94,7 +95,7 @@ final readonly class DetectMissingTranslations {
         $missing = [];
 
         foreach ($locales as $locale) {
-            if ($ignored_keys->has($key, $locale)) {
+            if ($ignored_keys->has($key, $locale, AuditType::Missing)) {
                 continue;
             }
 
@@ -138,7 +139,7 @@ final readonly class DetectMissingTranslations {
         $missing = [];
 
         foreach (array_keys($defined_keys) as $locale) {
-            if ($ignored_keys->has($dynamic_key->pattern(), $locale)) {
+            if ($ignored_keys->has($dynamic_key->pattern(), $locale, AuditType::Missing)) {
                 continue;
             }
 
@@ -148,7 +149,7 @@ final readonly class DetectMissingTranslations {
             $missing_keys = $matching_keys === [] ? [$dynamic_key->pattern()] : array_filter($matching_keys, $is_missing);
 
             foreach ($missing_keys as $missing_key) {
-                if (! $ignored_keys->has($missing_key, $locale)) {
+                if (! $ignored_keys->has($missing_key, $locale, AuditType::Missing)) {
                     $missing[] = new Translation($missing_key, $locale, $file);
                 }
             }

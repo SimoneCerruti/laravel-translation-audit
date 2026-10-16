@@ -12,6 +12,7 @@ use TranslationAudit\Actions\PurgeTranslationsFromFile;
 use TranslationAudit\Data\DisplayMessage;
 use TranslationAudit\Data\PurgeUnusedTranslationsConfig;
 use TranslationAudit\Data\Translation;
+use TranslationAudit\Enums\AuditType;
 use TranslationAudit\Enums\MessageSeverity;
 use TranslationAudit\Results\Contracts\Result;
 use TranslationAudit\Results\PurgeUnusedTranslationsResult;
@@ -52,9 +53,9 @@ final class PurgeUnusedTranslations extends AuditCommand {
         }
 
         $unused = app(DetectUnusedTranslations::class)->handle(
-            $translation_keys,
-            $this->shared_config->locales(),
-            $this->shared_config->unused_ignore_paths,
+            $this->translationKeysFor($translation_keys, AuditType::Unused),
+            $this->shared_config->locales(AuditType::Unused),
+            $this->shared_config->ignore_paths->for(AuditType::Unused),
             $this->shared_config->ignore_keys,
             $this->skipTranslationFile(...),
         );

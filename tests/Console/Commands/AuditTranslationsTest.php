@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Support\Carbon;
 use Symfony\Component\Console\Command\Command;
 use TranslationAudit\Console\Commands\AuditTranslations;
+use TranslationAudit\Enums\AuditType;
 use TranslationAudit\Enums\DisplayFormat;
 use TranslationAudit\Enums\SaveFormat;
 use TranslationAudit\Tests\Fixtures\OrderStatusLabelResolver;
@@ -39,7 +40,7 @@ describe('configuration', function (): void {
         artisan(AuditTranslations::class)
             ->expectsOutputToContain("The \"{$key}\" config must be an array.")
             ->assertExitCode(Command::INVALID);
-    })->with(['scan_paths', 'ignore_paths', 'ignore_links', 'ignore_locales', 'supported_locales', 'unused_ignore_paths']);
+    })->with(['scan_paths', 'ignore_paths', 'ignore_links', 'ignore_locales', 'supported_locales']);
 
     it('fails when a config value contains something other than non-empty strings', function (string $key, mixed $value): void {
         config(["translation-audit.{$key}" => ['en', $value]]);
@@ -47,11 +48,26 @@ describe('configuration', function (): void {
         artisan(AuditTranslations::class)
             ->expectsOutputToContain("The \"{$key}\" config must contain only non-empty strings.")
             ->assertExitCode(Command::INVALID);
-    })->with(['scan_paths', 'ignore_paths', 'ignore_links', 'ignore_locales', 'supported_locales', 'unused_ignore_paths'])->with([
+    })->with(['scan_paths', 'ignore_links', 'supported_locales'])->with([
         'empty string' => '',
         'integer' => 1,
         'null' => null,
         'nested array' => [['it']],
+    ]);
+
+    it('fails when a config value limited by audit contains an invalid entry', function (string $key, array $value): void {
+        config(["translation-audit.{$key}" => $value]);
+
+        artisan(AuditTranslations::class)
+            ->expectsOutputToContain("The \"{$key}\" config must contain only non-empty strings, or non-empty strings mapped to an AuditType case or its value.")
+            ->assertExitCode(Command::INVALID);
+    })->with(['ignore_paths', 'ignore_locales'])->with([
+        'empty string' => [['en', '']],
+        'integer' => [['en', 1]],
+        'null' => [['en', null]],
+        'nested array' => [['en', ['it']]],
+        'unknown audit' => [['en' => 'invalid']],
+        'list of audits' => [['en' => [AuditType::Missing]]],
     ]);
 
     it('succeeds when there are no files to scan', function (): void {
@@ -170,7 +186,7 @@ describe('ignored keys', function (): void {
         config(['translation-audit.ignore_keys' => $value]);
 
         artisan(AuditTranslations::class)
-            ->expectsOutputToContain('The "ignore_keys" config must contain only keys, or keys mapped to a list of locales.')
+            ->expectsOutputToContain('The "ignore_keys" config must contain only keys, or keys mapped to an AuditType case, or its value, or to a list of locales.')
             ->assertExitCode(Command::INVALID);
     })->with([
         'empty key' => [['']],
@@ -184,7 +200,7 @@ describe('ignored keys', function (): void {
         config(['translation-audit.ignore_keys' => ['Hi' => ['en', $locale]]]);
 
         artisan(AuditTranslations::class)
-            ->expectsOutputToContain('The locales of the "Hi" key in the "ignore_keys" config must be non-empty strings.')
+            ->expectsOutputToContain('The locales of the "Hi" key in the "ignore_keys" config must be non-empty strings, along with at most one AuditType case.')
             ->assertExitCode(Command::INVALID);
     })->with([
         'empty string' => '',
@@ -912,8 +928,8 @@ describe('unused translations', function (): void {
             ->assertFailed();
     });
 
-    it('does not report the translations of the files matching the unused ignore paths', function (): void {
-        config(['translation-audit.unused_ignore_paths' => ['lang/*/messages.php', 'lang/*/admin/*.php', 'lang/*/validation.php', 'lang/en.json']]);
+    it('does not report the translations of the translation files matching the ignore paths of every audit or of the unused one', function (): void {
+        config(['translation-audit.ignore_paths' => ['lang/*/messages.php', 'lang/*/admin/*.php' => AuditType::Unused, 'lang/*/validation.php' => 'unused', 'lang/en.json']]);
 
         auditAsJson(['--unused' => true])
             ->expectsOutputToContain('"unused":{}')
@@ -936,7 +952,7 @@ describe('unused translations', function (): void {
     });
 
     it('reports the translations of the files Laravel uses when they are not ignored', function (): void {
-        config(['translation-audit.unused_ignore_paths' => []]);
+        config(['translation-audit.ignore_paths' => []]);
 
         auditAsJson(['--unused' => true])
             ->expectsOutputToContain('"lang/it/validation.php":{"validation.required":"Obbligatorio"}')
@@ -986,6 +1002,102 @@ describe('unused translations', function (): void {
 
         auditAsJson(['--unused' => true])
             ->expectsOutputToContain('"unused":{"it":{"lang/it/messages.php":{"messages.nested.unused":"Inutilizzato"}}}')
+            ->assertFailed();
+    });
+
+    it('counts the keys of the scanned files the missing audit ignores as used, without reporting them as missing', function (): void {
+        putFile('app/Seeder.php', "<?php __('messages.old'); __('Seeded');");
+        config(['translation-audit.ignore_paths' => [...config('translation-audit.ignore_paths'), 'app/Seeder.php' => AuditType::Missing]]);
+
+        auditAsJson(['--unused' => true])
+            ->expectsOutput(resultJson(
+                ['app/Example.php' => ['messages.welcome' => ['en'], 'messages.nested.used' => ['en']]],
+                [
+                    'en' => ['lang/en.json' => ['Bye' => 'Bye']],
+                    'it' => [
+                        'lang/it/admin/users.php' => ['admin/users.title' => 'Utenti'],
+                        'lang/it/messages.php' => ['messages.nested.unused' => 'Inutilizzato'],
+                    ],
+                ],
+            ))
+            ->assertFailed();
+    });
+
+    it('reports the keys of the scanned files the unused audit ignores as missing, without counting them as used', function (): void {
+        putFile('app/Legacy.php', "<?php __('messages.old');");
+        config(['translation-audit.ignore_paths' => [...config('translation-audit.ignore_paths'), 'app/Legacy.php' => 'unused']]);
+
+        auditAsJson(['--unused' => true])
+            ->expectsOutput(resultJson(
+                [
+                    'app/Example.php' => ['messages.welcome' => ['en'], 'messages.nested.used' => ['en']],
+                    'app/Legacy.php' => ['messages.old' => ['en']],
+                ],
+                [
+                    'en' => ['lang/en.json' => ['Bye' => 'Bye']],
+                    'it' => [
+                        'lang/it/admin/users.php' => ['admin/users.title' => 'Utenti'],
+                        'lang/it/messages.php' => ['messages.old' => 'Vecchio', 'messages.nested.unused' => 'Inutilizzato'],
+                    ],
+                ],
+            ))
+            ->assertFailed();
+    });
+
+    it('keeps the additional keys when the ignore paths of an audit match the config file', function (): void {
+        config([
+            'translation-audit.scan_paths' => ['app/**/*.php', 'config/**/*.php'],
+            'translation-audit.ignore_paths' => ['config/**' => AuditType::Missing],
+            'translation-audit.additional_keys' => ['messages.extra'],
+        ]);
+
+        auditAsJson()
+            ->expectsOutput(resultJson([
+                'app/Example.php' => ['messages.welcome' => ['en'], 'messages.nested.used' => ['en']],
+                'config/translation-audit.php' => ['messages.extra' => ['en', 'it']],
+            ]))
+            ->assertFailed();
+    });
+
+    it('leaves the locales mapped to an audit out only of that audit', function (array $ignore_locales, array $missing, array $unused): void {
+        config(['translation-audit.ignore_locales' => $ignore_locales]);
+
+        auditAsJson(['--unused' => true])
+            ->expectsOutput(resultJson($missing, $unused))
+            ->assertFailed();
+    })->with([
+        'missing' => [
+            ['en' => AuditType::Missing],
+            [],
+            [
+                'en' => ['lang/en.json' => ['Bye' => 'Bye']],
+                'it' => [
+                    'lang/it/admin/users.php' => ['admin/users.title' => 'Utenti'],
+                    'lang/it/messages.php' => ['messages.old' => 'Vecchio', 'messages.nested.unused' => 'Inutilizzato'],
+                ],
+            ],
+        ],
+        'unused' => [
+            ['it' => 'unused'],
+            ['app/Example.php' => ['messages.welcome' => ['en'], 'messages.nested.used' => ['en']]],
+            ['en' => ['lang/en.json' => ['Bye' => 'Bye']]],
+        ],
+    ]);
+
+    it('ignores the keys mapped to an audit only in that audit', function (): void {
+        config(['translation-audit.ignore_keys' => ['messages.welcome' => AuditType::Missing, 'messages.old' => ['it', AuditType::Unused], 'Bye' => 'missing']]);
+
+        auditAsJson(['--unused' => true])
+            ->expectsOutput(resultJson(
+                ['app/Example.php' => ['messages.nested.used' => ['en']]],
+                [
+                    'en' => ['lang/en.json' => ['Bye' => 'Bye']],
+                    'it' => [
+                        'lang/it/admin/users.php' => ['admin/users.title' => 'Utenti'],
+                        'lang/it/messages.php' => ['messages.nested.unused' => 'Inutilizzato'],
+                    ],
+                ],
+            ))
             ->assertFailed();
     });
 
