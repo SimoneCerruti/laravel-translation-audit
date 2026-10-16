@@ -1,6 +1,16 @@
 # Release Notes
 
-## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.12.6...HEAD)
+## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.12.7...HEAD)
+
+## [v0.12.7](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.12.6...v0.12.7) - 2026-10-16
+
+### Fixes
+
+- Detect the missing translations of the keys matching a dynamic key, like `__('payments.'.$method)`, through the translator, as for a static key, instead of comparing the keys defined in the translation files of each locale. A key defined as a nested array in a locale, like `validation.password`, or provided by Laravel's own translations, like `validation.ends_with` in `en`, is no longer reported as missing, nor is a key in a locale with a translation file that cannot be read. A key the translator can't resolve, like one under an array key with dots (`'ipmi.type' => ['help' => …]`), is now reported as missing
+
+### Documentation
+
+- Reorder the README by usefulness, presenting the commands first, including `translation:purge-unused`, before the configuration and the advanced key detection, and add a table of contents and a table of the command options
 
 ## [v0.12.6](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.12.5...v0.12.6) - 2026-10-16
 
