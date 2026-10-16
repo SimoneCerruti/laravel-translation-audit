@@ -5,6 +5,11 @@
 ### Breaking Changes
 
 - Delimit the public API ahead of v1.0: the service provider, the commands, `AuditCommand`, the `TranslationKeyResolver` contract, the `Result` contract and the results, `Data\Translation`, the `DisplayFormat` and `SaveFormat` enums and `InvalidConfigException`. Every other class, like the actions, the support classes and the other data objects, is marked `@internal`, along with `AuditTranslationsResult::withUnused()` and `AuditTranslationsResult::jsonSections()`, and may change in any release. Every concrete class is now `final`, so the commands, the results and the service provider can no longer be extended
+- Rename the publish tag of the GitHub workflow from `laravel-translation-audit-workflow` to `laravel-translation-audit-github-workflow`, to tell it apart from the new GitLab one. Publish it with `php artisan vendor:publish --tag="laravel-translation-audit-github-workflow"`
+
+### Enhancements
+
+- Ship a ready-made GitLab CI job that runs `translation:audit` on every push to the default branch, on every merge request and on the pipelines run from the web UI. Publish it with `php artisan vendor:publish --tag="laravel-translation-audit-gitlab-workflow"` to `.gitlab/ci/audit-translations.yml`, then include it from your `.gitlab-ci.yml`. The `laravel-translation-audit` tag publishes it too, along with the config and the GitHub workflow
 
 ## [v0.12.7](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.12.6...v0.12.7) - 2026-10-16
 

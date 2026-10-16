@@ -209,7 +209,20 @@ php artisan translation:audit --for-agent
 The audit fails (non-zero exit code) when it finds missing translations, or unused ones when you ask for them, so it can block a pull request. The package ships a ready-made GitHub workflow that runs it on every push to `main` and on every pull request:
 
 ```bash
-php artisan vendor:publish --tag="laravel-translation-audit-workflow"
+php artisan vendor:publish --tag="laravel-translation-audit-github-workflow"
+```
+
+On GitLab, publish the ready-made job instead, which runs on every push to the default branch, on every merge request and on the pipelines run from the web UI:
+
+```bash
+php artisan vendor:publish --tag="laravel-translation-audit-gitlab-workflow"
+```
+
+It lands in `.gitlab/ci/audit-translations.yml`, so it never overwrites your `.gitlab-ci.yml`; include it from there:
+
+```yaml
+include:
+  - local: .gitlab/ci/audit-translations.yml
 ```
 
 ## Configuration

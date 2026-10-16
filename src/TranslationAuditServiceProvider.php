@@ -30,7 +30,11 @@ final class TranslationAuditServiceProvider extends ServiceProvider {
 
         $this->publishes([
             __DIR__.'/../workflows/audit-translations.yml' => base_path('.github/workflows/audit-translations.yml'),
-        ], ['laravel-translation-audit', 'laravel-translation-audit-workflow']);
+        ], ['laravel-translation-audit', 'laravel-translation-audit-github-workflow']);
+
+        $this->publishes([
+            __DIR__.'/../workflows/audit-translations.gitlab-ci.yml' => base_path('.gitlab/ci/audit-translations.yml'),
+        ], ['laravel-translation-audit', 'laravel-translation-audit-gitlab-workflow']);
 
         $this->commands([
             AuditTranslations::class,

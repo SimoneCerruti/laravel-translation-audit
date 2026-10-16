@@ -1,0 +1,38 @@
+# Include this file from the .gitlab-ci.yml of your project:
+#
+# include:
+#   - local: .gitlab/ci/audit-translations.yml
+
+audit-translations:
+  image: php:8.4-cli # Match the PHP version of your application.
+
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+  interruptible: true
+
+  variables:
+    COMPOSER_CACHE_DIR: $CI_PROJECT_DIR/.composer-cache
+
+  cache:
+    key:
+      files:
+        - composer.lock
+    paths:
+      - .composer-cache/
+
+  # Install here the PHP extensions your application needs, e.g. with docker-php-ext-install.
+  before_script:
+    - apt-get update && apt-get install -y --no-install-recommends git unzip
+    - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+    - composer install --prefer-dist --no-interaction --no-progress
+    - |
+      if [ ! -f .env ] && [ -f .env.example ]; then
+        cp .env.example .env
+      fi
+
+  # Fails the job when a translation key used in the scanned files is missing in a supported locale.
+  script:
+    - php artisan translation:audit
