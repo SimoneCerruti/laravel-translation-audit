@@ -10,9 +10,7 @@ use TranslationAudit\Console\Commands\AuditTranslations;
 use TranslationAudit\Console\Commands\PurgeUnusedTranslations;
 use TranslationAudit\Contracts\TranslationKeyResolver;
 use TranslationAudit\Data\Translation;
-use TranslationAudit\Enums\AuditType;
 use TranslationAudit\Enums\DisplayFormat;
-use TranslationAudit\Enums\SaveFormat;
 use TranslationAudit\Exceptions\InvalidConfigException;
 use TranslationAudit\Results\AuditTranslationsResult;
 use TranslationAudit\Results\Contracts\Result;
@@ -27,9 +25,7 @@ const PUBLIC_API = [
     PurgeUnusedTranslations::class,
     TranslationKeyResolver::class,
     Translation::class,
-    AuditType::class,
     DisplayFormat::class,
-    SaveFormat::class,
     InvalidConfigException::class,
     Result::class,
     AuditTranslationsResult::class,
