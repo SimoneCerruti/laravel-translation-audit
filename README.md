@@ -250,38 +250,34 @@ The comments in the published config file describe every setting in detail.
 To ignore a key everywhere, list it on its own. To ignore it only for some locales, map it to them:
 
 ```php
-use TranslationAudit\Enums\AuditType;
-
 'ignore_keys' => [
     'Hello',                              // ignored for every locale
     'Hi' => ['en'],                       // ignored only for English
     'payments.*',                         // a dynamic key, like __("payments.{$method}"), ignored by its pattern
-    'Bye' => AuditType::Missing,          // never reported as missing, but still as unused
-    'Ciao' => ['en', AuditType::Unused],  // never reported as unused, nor removed, in English
+    'Bye' => 'missing',                   // never reported as missing, but still as unused
+    'Ciao' => ['en', 'unused'],           // never reported as unused, nor removed, in English
 ],
 ```
 
 ### Limiting to One Audit
 
-`ignore_paths`, `ignore_locales` and `ignore_keys` apply to both the missing and the unused audit. Map an entry to an `AuditType` case, or its value (`'missing'` or `'unused'`), to apply it to that audit only:
+`ignore_paths`, `ignore_locales` and `ignore_keys` apply to both the missing and the unused audit. Map an entry to an audit, `'missing'` or `'unused'`, to apply it to that audit only:
 
 ```php
-use TranslationAudit\Enums\AuditType;
-
 'ignore_paths' => [
-    '{lang,resources/lang}/*/validation.php' => AuditType::Unused, // the defaults, Laravel's own translation files
+    '{lang,resources/lang}/*/validation.php' => 'unused', // the defaults, Laravel's own translation files
     // ...
-    'app/Legacy/**',                              // skipped by both audits
-    'database/seeders/**' => AuditType::Missing,  // its keys aren't reported as missing, but still count as used
-    'app/Deprecated/**' => AuditType::Unused,     // its keys are reported as missing, but don't count as used
+    'app/Legacy/**',                        // skipped by both audits
+    'database/seeders/**' => 'missing',     // its keys aren't reported as missing, but still count as used
+    'app/Deprecated/**' => 'unused',        // its keys are reported as missing, but don't count as used
 ],
 
 'ignore_locales' => [
-    'en' => AuditType::Missing, // your keys are the English text, but its unused translations are still reported and removed
+    'en' => 'missing', // your keys are the English text, but its unused translations are still reported and removed
 ],
 ```
 
-A file the missing audit ignores is still scanned, so the translations it uses aren't removed by the purge. A file the unused audit ignores is still audited for missing translations, while the translations used only there are reported as unused, and removed. The translation files are only skipped by the unused audit, so map their patterns to `AuditType::Unused`, or to no audit. When you add your own `ignore_paths`, keep the default ones, or Laravel's translation files will be reported as unused, and removed.
+A file the missing audit ignores is still scanned, so the translations it uses aren't removed by the purge. A file the unused audit ignores is still audited for missing translations, while the translations used only there are reported as unused, and removed. The translation files are only skipped by the unused audit, so map their patterns to `'unused'`, or to no audit. When you add your own `ignore_paths`, keep the default ones, or Laravel's translation files will be reported as unused, and removed.
 
 ### Files That Can't Be Read
 
@@ -303,7 +299,7 @@ A key returning an array uses all the translations nested in it: with `__('setti
 
 A key with leading slashes uses the translations of the same PHP file, like the translator: `__('/admin/form.title')` uses `admin/form.title`.
 
-Laravel's own translation files (`auth.php`, `pagination.php`, `passwords.php` and `validation.php`) are never reported as unused, since the framework uses them, whether your `lang` folder is at the project root or in `resources`. They are the defaults of the `ignore_paths` config, mapped to `AuditType::Unused`, and you can change them there.
+Laravel's own translation files (`auth.php`, `pagination.php`, `passwords.php` and `validation.php`) are never reported as unused, since the framework uses them, whether your `lang` folder is at the project root or in `resources`. They are the defaults of the `ignore_paths` config, mapped to `'unused'`, and you can change them there.
 
 ### Custom Translation Calls
 
@@ -433,13 +429,10 @@ class NotifyTeam
 Then list it in the `hooks` config. A listed hook runs on every command, a hook mapped to a command class, or a list of command classes, only on those:
 
 ```php
-use TranslationAudit\Console\Commands\AuditTranslations;
-use TranslationAudit\Console\Commands\PurgeUnusedTranslations;
-
 'hooks' => [
-    App\Translations\PullTranslations::class,                         // every command
-    App\Translations\NotifyTeam::class => AuditTranslations::class,   // only translation:audit
-    App\Translations\CommitLangFiles::class => [PurgeUnusedTranslations::class],
+    App\Translations\PullTranslations::class,                                                       // every command
+    App\Translations\NotifyTeam::class => TranslationAudit\Console\Commands\AuditTranslations::class, // only translation:audit
+    App\Translations\CommitLangFiles::class => [TranslationAudit\Console\Commands\PurgeUnusedTranslations::class],
 ],
 ```
 

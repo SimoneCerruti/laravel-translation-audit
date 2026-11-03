@@ -2,34 +2,43 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\ServiceProvider;
 use TranslationAudit\Console\Commands\AuditTranslations;
 use TranslationAudit\Console\Commands\PurgeUnusedTranslations;
-use TranslationAudit\Enums\AuditType;
-use TranslationAudit\Enums\DisplayFormat;
-use TranslationAudit\Enums\SaveFormat;
 use TranslationAudit\TranslationAuditServiceProvider;
 
 it('merges the package config', function (): void {
     expect(config('translation-audit.scan_paths'))->toBe(['app/**/*.php', 'database/**/*.php', 'resources/views/**/*.blade.php', 'routes/**/*.php'])
         ->and(config('translation-audit.ignore_paths'))->toBe([
-            '{lang,resources/lang}/*/auth.php' => AuditType::Unused,
-            '{lang,resources/lang}/*/pagination.php' => AuditType::Unused,
-            '{lang,resources/lang}/*/passwords.php' => AuditType::Unused,
-            '{lang,resources/lang}/*/validation.php' => AuditType::Unused,
+            '{lang,resources/lang}/*/auth.php' => 'unused',
+            '{lang,resources/lang}/*/pagination.php' => 'unused',
+            '{lang,resources/lang}/*/passwords.php' => 'unused',
+            '{lang,resources/lang}/*/validation.php' => 'unused',
         ])
         ->and(config('translation-audit.ignore_links'))->toBe(['vendor', 'node_modules'])
         ->and(config('translation-audit.ignore_locales'))->toBe([])
         ->and(config('translation-audit.supported_locales'))->toBe(['auto'])
         ->and(config('translation-audit.always_follow_links'))->toBeFalse()
         ->and(config('translation-audit.always_save'))->toBeFalse()
-        ->and(config('translation-audit.save_format'))->toBe(SaveFormat::Json)
+        ->and(config('translation-audit.save_format'))->toBe('json')
         ->and(str_replace('\\', '/', config('translation-audit.save_path')))->toEndWith('/storage/app/private/translation-audits')
         ->and(config('translation-audit.save_name'))->toBe('translation-audit-{now:d_M_Y_H_i}-{random:8}')
-        ->and(config('translation-audit.display_format'))->toBe(DisplayFormat::List)
+        ->and(config('translation-audit.display_format'))->toBe('list')
         ->and(config('translation-audit.audit_unused'))->toBeFalse()
         ->and(config()->has('translation-audit.unused_ignore_paths'))->toBeFalse();
+});
+
+it('ships a config file loadable without the package classes', function (): void {
+    $file = __DIR__.'/../config/translation-audit.php';
+
+    $names = collect(PhpToken::tokenize((string) file_get_contents($file)))
+        ->filter(fn (PhpToken $token): bool => $token->is([T_USE, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED]))
+        ->map(fn (PhpToken $token): string => $token->text);
+
+    expect($names->all())->toBeEmpty()
+        ->and(Arr::flatten(require $file))->each(fn ($value) => $value->toBeScalar());
 });
 
 it('registers the artisan commands', function (string $name, string $class): void {

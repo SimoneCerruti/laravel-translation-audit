@@ -2,6 +2,10 @@
 
 ## [Unreleased](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.13.0...HEAD)
 
+### Fixes
+
+- Write the defaults of the published config as plain values, like `'unused'`, `'json'` and `'list'`, instead of the `AuditType`, `SaveFormat` and `DisplayFormat` cases, so the app no longer fails to boot with `Class "TranslationAudit\Enums\AuditType" not found` where the package, a dev dependency, isn't installed, like in production. A config file published before must replace them the same way: `AuditType::Unused` with `'unused'`, `AuditType::Missing` with `'missing'`, `SaveFormat::Json` with `'json'` and `DisplayFormat::List` with `'list'`, dropping their `use` statements
+
 ## [v0.13.0](https://github.com/simonecerruti/laravel-translation-audit/compare/v0.12.7...v0.13.0) - 2026-10-16
 
 ### Breaking Changes

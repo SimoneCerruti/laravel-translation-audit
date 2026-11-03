@@ -2,10 +2,8 @@
 
 declare(strict_types=1);
 
-use TranslationAudit\Enums\AuditType;
-use TranslationAudit\Enums\DisplayFormat;
-use TranslationAudit\Enums\SaveFormat;
-
+// Use only plain values, never the package classes: the package is usually a dev dependency, while
+// Laravel loads this file on every boot, also in production, where those classes aren't installed.
 return [
     // Glob patterns, relative to the project root, of the files to scan for translation keys.
     'scan_paths' => [
@@ -16,17 +14,17 @@ return [
     ],
 
     // Glob patterns, relative to the project root, of the files to skip even when they match a scan path, and of
-    // the translation files never reported as unused, nor purged. Map a pattern to an AuditType case, or its value,
-    // to skip the files only in that audit: e.g. 'database/seeders/**' => AuditType::Missing still counts the keys
-    // the seeders use as used, so they are not purged, while 'app/Legacy/**' => AuditType::Unused still audits them
+    // the translation files never reported as unused, nor purged. Map a pattern to an audit, 'missing' or 'unused',
+    // to skip the files only in that audit: e.g. 'database/seeders/**' => 'missing' still counts the keys
+    // the seeders use as used, so they are not purged, while 'app/Legacy/**' => 'unused' still audits them
     // for missing translations, but reports the keys used only there as unused. The translation files are skipped
     // only by the unused audit. By default the translation files whose keys Laravel itself uses, in the "lang"
     // folder or, for the apps created before Laravel 9, in the "resources/lang" one.
     'ignore_paths' => [
-        '{lang,resources/lang}/*/auth.php' => AuditType::Unused,
-        '{lang,resources/lang}/*/pagination.php' => AuditType::Unused,
-        '{lang,resources/lang}/*/passwords.php' => AuditType::Unused,
-        '{lang,resources/lang}/*/validation.php' => AuditType::Unused,
+        '{lang,resources/lang}/*/auth.php' => 'unused',
+        '{lang,resources/lang}/*/pagination.php' => 'unused',
+        '{lang,resources/lang}/*/passwords.php' => 'unused',
+        '{lang,resources/lang}/*/validation.php' => 'unused',
     ],
 
     // Glob patterns, relative to the project root, of the symbolic links never to follow,
@@ -37,7 +35,7 @@ return [
     ],
 
     // Locales to leave out of the audit, e.g. ['en'] when the keys themselves are the English strings. Map a
-    // locale to an AuditType case, or its value, to leave it out only of that audit, e.g. ['en' => AuditType::Missing]
+    // locale to an audit, 'missing' or 'unused', to leave it out only of that audit, e.g. ['en' => 'missing']
     // to still report and purge the unused translations of a locale whose keys are its strings.
     'ignore_locales' => [],
 
@@ -53,9 +51,8 @@ return [
     // missing. The --save option overrides it.
     'always_save' => false,
 
-    // Format of the saved audit result, as a SaveFormat case or its value. Supported formats:
-    // json. The --save-format option overrides it.
-    'save_format' => SaveFormat::Json,
+    // Format of the saved audit result. Supported formats: json. The --save-format option overrides it.
+    'save_format' => 'json',
 
     // Absolute path of the directory where the audit result is saved, created if
     // missing. The --save-path option overrides it.
@@ -74,8 +71,8 @@ return [
 
     // Translation keys to leave out of the audit. A plain key is ignored for every locale, a key
     // mapped to a list of locales only for those locales, e.g. ['Hello', 'Hi' => ['en']]. Map a key
-    // to an AuditType case, or its value, to ignore it only in that audit, or add the case to its
-    // locales, e.g. ['Bye' => AuditType::Missing, 'Ciao' => ['en', AuditType::Unused]]. A dynamic key,
+    // to an audit, 'missing' or 'unused', to ignore it only in that audit, or add the audit to its
+    // locales, e.g. ['Bye' => 'missing', 'Ciao' => ['en', 'unused']]. A dynamic key,
     // like __("payments.{$method}"), is ignored by its pattern, with an asterisk in place of each
     // dynamic part, e.g. 'payments.*'.
     'ignore_keys' => [],
@@ -106,9 +103,9 @@ return [
     // [App\Translations\SyncTranslations::class, App\Translations\NotifyTeam::class => TranslationAudit\Console\Commands\AuditTranslations::class].
     'hooks' => [],
 
-    // Format in which the audit result is displayed in the console, as a DisplayFormat case or its
-    // value. Supported formats: json, list, table. The --display-format option overrides it.
-    'display_format' => DisplayFormat::List,
+    // Format in which the audit result is displayed in the console.
+    // Supported formats: json, list, table. The --display-format option overrides it.
+    'display_format' => 'list',
 
     // Whether to hide the progress bar while the files are scanned. The
     // --no-progress option overrides it.
